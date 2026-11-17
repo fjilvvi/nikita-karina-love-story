@@ -122,7 +122,7 @@ export class StoryScene extends Phaser.Scene {
   private interact = (): void => {
     if (!this.started || this.paused || this.stage >= story.length) return;
     const x = this.player.x;
-    if (this.stage === 0 && Math.abs(x - 690) < 85) {
+    if (this.stage === 0 && Math.abs(x - 620) < 95) {
       this.openChallenge();
       return;
     }
@@ -314,11 +314,14 @@ export class StoryScene extends Phaser.Scene {
     this.add.image(W / 2, H / 2, `bg-${name}`).setDisplaySize(W, H).setDepth(-10);
     this.floor = this.stage === 1 ? 454 : 461;
     if (this.stage === 0) {
-      const friends = this.add.image(795, this.floor - 113, 'friends-full').setDisplaySize(228, 226).setDepth(10);
+      // Preserve the source's 3:2 aspect ratio so the three friends look natural.
+      const friendsHeight = 233;
+      const friendsWidth = friendsHeight * 1536 / 1024;
+      const friends = this.add.image(784, this.floor - friendsHeight / 2, 'friends-full').setDisplaySize(friendsWidth, friendsHeight).setDepth(10);
       this.tweens.add({ targets: friends, y: friends.y - 4, duration: 690, yoyo: true, repeat: -1 });
-      this.karinaSprite = this.personFull(681, this.floor, 'karina-full', 256);
+      this.karinaSprite = this.personFull(575, this.floor, 'karina-full', 256);
       this.tweens.add({ targets: this.karinaSprite, y: this.karinaSprite.y - 5, duration: 550, yoyo: true, repeat: -1 });
-      this.label('КАРИНА ♥', 682, 306, '#fff4e3', '13px');
+      this.label('КАРИНА ♥', 575, 190, '#fff4e3', '13px');
       for (const x of [74, 888]) this.sparkle(g, x, 185, 0xffb9db);
     } else if (this.stage === 1) {
       for (let i = 0; i < 3; i++) {
