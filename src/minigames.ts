@@ -1,3 +1,5 @@
+import { chipMusic } from './audio';
+
 type Done = () => void;
 
 const directions = ['←', '→', '↑', '←'];
@@ -59,11 +61,10 @@ export class MiniGames {
     const body = this.body();
     body.innerHTML = `<div class="challenge-layout"><div class="challenge-copy"><p class="challenge-kicker">УРОВЕНЬ 01 · DOSKI</p><h2>Попади<br><em>в этот ритм.</em></h2><p>Никита танцует с закрытыми глазами. Жми в тот момент, когда светящийся квадрат проходит через сердце. Четыре удара — и Карина заметит его.</p><div class="beat-track"><span class="beat-target">♥</span><span class="beat-cursor" id="beat-cursor"></span></div><div class="challenge-score" id="beat-score">РИТМ 0 / 4</div><div class="challenge-feedback" aria-live="polite">Жми пробел, E или кнопку</div><button class="challenge-primary" data-action="hit" type="button">✦ ПОПАСТЬ В ТАКТ</button></div><div class="challenge-video"><video src="assets/first-day.mp4" poster="assets/first-day-poster.png" autoplay loop muted playsinline controls aria-label="Видео первого вечера в DOSKI"></video><span>НАСТОЯЩИЙ КАДР · ПЕРВЫЙ ВЕЧЕР</span></div></div>`;
     const cursor = this.root.querySelector<HTMLElement>('#beat-cursor')!;
-    const start = performance.now();
     let position = 0;
-    const animate = (now: number) => {
+    const animate = () => {
       if (!this.active || !cursor.isConnected) return;
-      position = (Math.sin((now - start) * Math.PI / 850 - Math.PI / 2) + 1) / 2;
+      position = (Math.sin(chipMusic.getBeatPhase() * Math.PI * 2) + 1) / 2;
       cursor.style.left = `${position * 100}%`;
       this.raf = requestAnimationFrame(animate);
     };
@@ -71,11 +72,12 @@ export class MiniGames {
     body.querySelector('[data-action="hit"]')?.addEventListener('click', () => {
       if (hits >= 4) return;
       if (Math.abs(position - .5) < .16) {
+        chipMusic.cue('hit');
         hits++;
         this.feedback(hits === 4 ? 'Идеально! Теперь повтори движение.' : 'В ТОЧКУ! ♥');
         body.querySelector('#beat-score')!.textContent = `РИТМ ${hits} / 4`;
         if (hits === 4) { cancelAnimationFrame(this.raf); this.later(600, () => this.dance()); }
-      } else this.feedback('Чуть раньше или позже — попробуй снова', false);
+      } else { chipMusic.cue('miss'); this.feedback('Чуть раньше или позже — попробуй снова', false); }
     });
   }
 
@@ -85,7 +87,8 @@ export class MiniGames {
     body.innerHTML = `<div class="challenge-layout"><div class="challenge-copy"><p class="challenge-kicker">УРОВЕНЬ 01 · ВТОРОЙ ТАНЕЦ</p><h2>Повтори<br><em>движение.</em></h2><p>Смотри кадр первого вечера и повтори короткую игровую связку. Последовательность можно подсматривать — главное двигаться вместе.</p><div class="dance-sequence">${directions.map((d, i) => `<span data-step="${i}">${d}</span>`).join('')}</div><div class="challenge-feedback" aria-live="polite">Нажимай стрелки или кнопки ниже</div><div class="dance-buttons"><button data-dir="left" type="button">←</button><button data-dir="up" type="button">↑</button><button data-dir="right" type="button">→</button></div></div><div class="challenge-video"><video src="assets/first-day.mp4" poster="assets/first-day-poster.png" autoplay loop muted playsinline controls aria-label="Видео первого вечера в DOSKI"></video><span>НАСТОЯЩИЙ КАДР · ПЕРВЫЙ ВЕЧЕР</span></div></div>`;
     body.querySelectorAll<HTMLButtonElement>('[data-dir]').forEach(button => button.addEventListener('click', () => {
       const value = button.dataset.dir === 'left' ? '←' : button.dataset.dir === 'right' ? '→' : '↑';
-      if (value !== directions[step]) { step = 0; body.querySelectorAll('[data-step]').forEach(el => el.classList.remove('done')); this.feedback('Давай ещё раз, с первого движения', false); return; }
+      if (value !== directions[step]) { chipMusic.cue('miss'); step = 0; body.querySelectorAll('[data-step]').forEach(el => el.classList.remove('done')); this.feedback('Давай ещё раз, с первого движения', false); return; }
+      chipMusic.cue('hit');
       body.querySelector(`[data-step="${step}"]`)?.classList.add('done');
       step++;
       this.feedback(step === 4 ? 'Карина зовёт танцевать вместе ♥' : 'Отлично, дальше!');
@@ -104,8 +107,8 @@ export class MiniGames {
     this.raf = requestAnimationFrame(animate);
     body.querySelector('[data-action="hit"]')?.addEventListener('click', () => {
       if (won) return;
-      if (position > .72) { won = true; this.feedback('Согрелась ♥'); this.later(650, () => this.finish()); }
-      else this.feedback('Чуть ближе к Карине', false);
+      if (position > .72) { won = true; chipMusic.cue('heart'); this.feedback('Согрелась ♥'); this.later(650, () => this.finish()); }
+      else { chipMusic.cue('miss'); this.feedback('Чуть ближе к Карине', false); }
     });
   }
 
@@ -131,6 +134,7 @@ export class MiniGames {
     body.querySelectorAll<HTMLButtonElement>('[data-item]').forEach(button => button.addEventListener('click', () => {
       if (locked) return;
       if (button.dataset.item !== expected[count]) {
+        chipMusic.cue('miss');
         count = 0;
         body.querySelectorAll<HTMLButtonElement>('[data-item]').forEach(item => item.disabled = false);
         this.feedback('Попробуй ещё раз — подсказка вернётся', false);
@@ -139,6 +143,7 @@ export class MiniGames {
         return;
       }
       slots[count].textContent = expected[count];
+      chipMusic.cue('hit');
       button.disabled = true;
       count++;
       this.feedback(count === 3 ? 'Вечер хочется продолжать ♥' : 'Хорошо, что дальше?');
@@ -158,8 +163,8 @@ export class MiniGames {
       body.querySelectorAll<HTMLButtonElement>('[data-phrase]').forEach(item => item.classList.toggle('selected', selected.includes(item.dataset.phrase!)));
     }));
     body.querySelector('[data-action="send"]')?.addEventListener('click', () => {
-      if (selected.includes('Как дела?') && selected.includes('Проснулись?')) { this.feedback('Карина уже собирается в парк ♥'); this.later(900, () => this.finish()); }
-      else this.feedback('Никита спросил, как дела и проснулись ли они', false);
+      if (selected.includes('Как дела?') && selected.includes('Проснулись?')) { chipMusic.cue('send'); this.feedback('Карина уже собирается в парк ♥'); this.later(900, () => this.finish()); }
+      else { chipMusic.cue('miss'); this.feedback('Никита спросил, как дела и проснулись ли они', false); }
     });
   }
 
@@ -169,7 +174,8 @@ export class MiniGames {
     const body = this.body();
     body.innerHTML = `<div class="challenge-centered"><p class="challenge-kicker">УРОВЕНЬ 05 · СНОВА В ОМСКЕ</p><h2>Всё привело <em>сюда.</em></h2><p>Перед встречей в аэропорту вспомни, с чего началась эта история. Расставь три момента по порядку.</p><div class="reunion-timeline"><span id="moment-0">01 ?</span><span id="moment-1">02 ?</span><span id="moment-2">03 ?</span></div><div class="message-options"><button data-moment="ЦВЕТЫ" type="button">✿ ЦВЕТЫ</button><button data-moment="СООБЩЕНИЕ" type="button">✉ СООБЩЕНИЕ</button><button data-moment="ТАНЕЦ" type="button">♫ ТАНЕЦ</button></div><div class="challenge-feedback" aria-live="polite">Как всё начиналось?</div></div>`;
     body.querySelectorAll<HTMLButtonElement>('[data-moment]').forEach(button => button.addEventListener('click', () => {
-      if (button.dataset.moment !== expected[step]) { this.feedback('Вспомни самый первый вечер', false); return; }
+      if (button.dataset.moment !== expected[step]) { chipMusic.cue('miss'); this.feedback('Вспомни самый первый вечер', false); return; }
+      chipMusic.cue('hit');
       body.querySelector(`#moment-${step}`)!.textContent = `${String(step + 1).padStart(2,'0')} ${expected[step]}`;
       button.disabled = true;
       step++;

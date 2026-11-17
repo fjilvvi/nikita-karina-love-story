@@ -1,12 +1,13 @@
 import { chapters, story } from './content/story';
 import { mountGame } from './game';
-import { chipMusic } from './audio';
+import { chipMusic, soundtrack } from './audio';
 import { MiniGames } from './minigames';
 import './style.css';
 import './challenge.css';
 import './polish.css';
 import './level-select.css';
 import './challenge-polish.css';
+import './retrowave.css';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('App mount not found');
@@ -30,6 +31,7 @@ app.innerHTML = `
         </div>
         <div class="game-column" id="game-area">
           <div class="game-frame" id="game-frame"><div class="frame-top"><span class="live-dot"></span> СЕЙЧАС В ИГРЕ <span class="frame-title" id="frame-title">ГЛАВА 01: ТАНЦПОЛ</span><button class="expand-button" id="expand-button" type="button" aria-label="Развернуть игру на весь экран">⛶</button></div><div id="game" class="game-canvas" role="application" aria-label="Пиксельная история Никиты и Карины"><div class="game-loading" id="game-loading"><span>♥</span><strong>ЗАГРУЖАЕМ ОМСК...</strong><small>СОБИРАЕМ ИСТОРИЮ ПО ПИКСЕЛЯМ</small></div></div><div class="game-hud" aria-hidden="true"><div class="hud-panel"><img src="assets/nikita-pixel-portrait.png" alt=""><span><small>НИКИТА · ОМСК</small><strong id="hud-chapter">ТАНЦПОЛ</strong></span></div><div class="hud-energy"><small>ИСТОРИЯ</small><span>♥ ♥ ♥ ♥ ♥</span></div><div class="hud-prompt" id="hud-prompt">E — ПОТАНЦЕВАТЬ</div></div><div class="frame-bottom"><span id="progress-label">✦ ГЛАВА 01 / 06</span><span>НИКИТА + КАРИНА</span><span>16 BIT LOVE STORY</span></div></div>
+          <div class="music-station" id="music-station" aria-label="Музыка игры"><div class="station-icon" aria-hidden="true">♫</div><div class="station-copy"><small id="station-status">ORIGINAL SOUNDTRACK / ГОТОВ К ИГРЕ</small><strong id="track-title">01 · Ночь в DOSKI</strong><span id="track-mood">НЕОНОВЫЙ ТАНЦПОЛ · 112 BPM</span></div><div class="station-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><label class="station-volume">ГРОМКОСТЬ<input id="volume-range" type="range" min="0" max="100" value="72" aria-label="Громкость музыки"></label></div>
           <div class="mobile-controls" aria-label="Управление игрой"><button type="button" class="control-button" data-move="-1" aria-label="Идти влево">◀</button><button type="button" class="control-button" data-move="1" aria-label="Идти вправо">▶</button><button type="button" class="control-button action-button" id="interact-button">✦ ДЕЙСТВИЕ</button></div><p class="mobile-hint" id="mobile-hint">${story[0].hint}</p>
           <div class="game-caption"><span class="caption-star">✳</span><span>СТРЕЛКИ ИЛИ A/D — ИДТИ · E ИЛИ ПРОБЕЛ — ДЕЙСТВИЕ</span><div class="portrait-hud"><span class="portrait-badge"><img src="assets/nikita-pixel-portrait.png" alt="Пиксельный портрет Никиты"><small>НИКИТА</small></span><span class="hud-heart">♥</span><span class="portrait-badge"><img src="assets/karina-pixel-portrait.png" alt="Пиксельный портрет Карины"><small>КАРИНА</small></span></div></div>
         </div>
@@ -41,7 +43,7 @@ app.innerHTML = `
 
       <section class="chapters" id="chapters" aria-labelledby="chapters-title">
         <div class="chapters-heading"><div><p class="section-kicker">ШЕСТЬ МОМЕНТОВ ОДНОЙ ИСТОРИИ</p><h2 id="chapters-title">От танца<br><em>до навсегда.</em></h2></div><p class="section-note">Выберите главу или пройдите всю историю по порядку.<br>Каждая сцена открывает настоящий кадр из жизни Никиты и Карины.</p></div>
-        <div class="chapter-grid">${chapters.map((chapter, index) => `<button class="chapter-card ${index === 0 ? 'current' : ''}" type="button" data-chapter="${index}"><span class="card-top"><span>ГЛАВА ${chapter.number}</span><span>✦</span></span><span class="card-number">${chapter.number}</span><span class="card-bottom"><strong>${chapter.title}</strong><small>${chapter.subtitle}</small></span></button>`).join('')}</div>
+        <div class="chapter-grid">${chapters.map((chapter, index) => `<button class="chapter-card ${index === 0 ? 'current' : ''}" type="button" data-chapter="${index}"><span class="card-top"><span>ГЛАВА ${chapter.number}</span><span>✦</span></span><span class="card-number">${chapter.number}</span><span class="card-bottom"><strong>${chapter.title}</strong><small>${chapter.subtitle}</small><span class="card-track">♫ ${soundtrack[index].title} · ${soundtrack[index].bpm} BPM</span></span></button>`).join('')}</div>
       </section>
 
       <section class="archive" id="archive" aria-labelledby="archive-title">
@@ -74,11 +76,41 @@ const memoryVisual = document.querySelector<HTMLElement>('#memory-visual');
 const challengeRoot = document.querySelector<HTMLElement>('#challenge-modal');
 const miniGames = challengeRoot ? new MiniGames(challengeRoot) : null;
 let started = false;
+const siteShell = document.querySelector<HTMLElement>('.site-shell');
+const station = document.querySelector<HTMLElement>('#music-station');
+const soundButton = document.querySelector<HTMLButtonElement>('#sound-button');
+const volumeRange = document.querySelector<HTMLInputElement>('#volume-range');
+
+function updateSoundUI(): void {
+  const enabled = chipMusic.isEnabled;
+  if (soundButton) {
+    soundButton.textContent = enabled ? '♪ ЗВУК ВКЛ' : '♪ ЗВУК ВЫКЛ';
+    soundButton.setAttribute('aria-label', enabled ? 'Выключить музыку' : 'Включить музыку');
+    soundButton.setAttribute('aria-pressed', String(enabled));
+  }
+  if (station) {
+    station.dataset.muted = String(!enabled);
+    station.dataset.playing = String(chipMusic.isPlaying);
+  }
+  const stationStatus = document.querySelector<HTMLElement>('#station-status');
+  if (stationStatus) stationStatus.textContent = !enabled ? 'ORIGINAL SOUNDTRACK / ЗВУК ВЫКЛЮЧЕН' : chipMusic.isPlaying ? 'ORIGINAL SOUNDTRACK / СЕЙЧАС ИГРАЕТ' : 'ORIGINAL SOUNDTRACK / ГОТОВ К ИГРЕ';
+}
+if (volumeRange) volumeRange.value = String(Math.round(chipMusic.currentVolume * 100));
+volumeRange?.addEventListener('input', () => chipMusic.setVolume(Number(volumeRange.value) / 100));
+updateSoundUI();
+function updateVideoDucking(): void {
+  const playing = [...document.querySelectorAll<HTMLVideoElement>('video')].some(video => !video.paused && !video.muted);
+  chipMusic.setVideoDucked(playing);
+}
+document.addEventListener('play', updateVideoDucking, true);
+document.addEventListener('pause', updateVideoDucking, true);
+document.addEventListener('ended', updateVideoDucking, true);
 
 function scrollToGame(): void { gameArea?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 function startGame(): void {
   miniGames?.close();
   chipMusic.start();
+  updateSoundUI();
   if (started) window.dispatchEvent(new CustomEvent('game:jump', { detail: 0 }));
   else { started = true; window.dispatchEvent(new Event('game:start')); }
   if (startButton) startButton.innerHTML = '<span class="button-arrow">↻</span> ИГРАТЬ СНАЧАЛА';
@@ -91,6 +123,7 @@ document.querySelectorAll<HTMLButtonElement>('[data-chapter]').forEach((button) 
   button.addEventListener('click', () => {
     miniGames?.close();
     chipMusic.start();
+    updateSoundUI();
     started = true;
     if (startButton) startButton.innerHTML = '<span class="button-arrow">↻</span> ИГРАТЬ СНАЧАЛА';
     if (memoryModal) memoryModal.hidden = true;
@@ -113,12 +146,19 @@ window.addEventListener('game:stage', ((event: CustomEvent<number>) => {
   if (hudChapter) hudChapter.textContent = chapters[index].title.toUpperCase();
   if (hudPrompt) hudPrompt.textContent = ['E — ТАНЦЕВАТЬ', 'E — СОБРАТЬ ЦВЕТЫ', 'E — ПРИСЕСТЬ', 'E — НАПИСАТЬ', 'E — ВСТРЕТИТЬ', '♥ — НАВСЕГДА'][index];
   chipMusic.setStage(index);
+  if (siteShell) siteShell.dataset.stage = String(index);
+  const track = soundtrack[index];
+  const trackTitle = document.querySelector<HTMLElement>('#track-title');
+  const trackMood = document.querySelector<HTMLElement>('#track-mood');
+  if (trackTitle) trackTitle.textContent = `${String(index + 1).padStart(2, '0')} · ${track.title}`;
+  if (trackMood) trackMood.textContent = `${track.mood} · ${track.bpm} BPM`;
   const mobileHint = document.querySelector<HTMLElement>('#mobile-hint');
   if (mobileHint) mobileHint.textContent = index < story.length ? story[index].hint : 'История Никиты и Карины продолжается ♥';
   document.querySelectorAll<HTMLElement>('[data-chapter]').forEach((card) => card.classList.toggle('current', Number(card.dataset.chapter) === index));
 }) as EventListener);
 
 window.addEventListener('game:flowers', ((event: CustomEvent<number>) => {
+  chipMusic.cue('flower');
   if (hudPrompt) hudPrompt.textContent = event.detail === 3 ? 'E — ОТДАТЬ БУКЕТ И ПАЛЬТО' : `БУКЕТ ${event.detail} / 3 · E — СОБРАТЬ`;
 }) as EventListener);
 
@@ -155,20 +195,14 @@ function closeMemoryAndContinue(): void {
   window.dispatchEvent(new Event('game:continue'));
 }
 document.querySelector('#memory-next')?.addEventListener('click', closeMemoryAndContinue);
-window.addEventListener('game:complete', () => { if (completionModal) completionModal.hidden = false; });
+window.addEventListener('game:complete', () => { chipMusic.cue('complete'); if (completionModal) completionModal.hidden = false; });
 document.querySelector('#replay-button')?.addEventListener('click', startGame);
 document.querySelector('#close-modal')?.addEventListener('click', () => {
   if (completionModal) completionModal.hidden = true;
   document.querySelector('#archive')?.scrollIntoView({ behavior: 'smooth' });
 });
 document.querySelector('#interact-button')?.addEventListener('click', () => window.dispatchEvent(new Event('game:interact')));
-document.querySelector<HTMLButtonElement>('#sound-button')?.addEventListener('click', (event) => {
-  const enabled = chipMusic.toggle();
-  const button = event.currentTarget as HTMLButtonElement;
-  button.textContent = enabled ? '♪ ЗВУК ВКЛ' : '♪ ЗВУК ВЫКЛ';
-  button.setAttribute('aria-label', enabled ? 'Выключить музыку' : 'Включить музыку');
-  button.setAttribute('aria-pressed', String(enabled));
-});
+soundButton?.addEventListener('click', () => { chipMusic.toggle(); updateSoundUI(); });
 document.querySelectorAll<HTMLButtonElement>('[data-move]').forEach((button) => {
   const direction = Number(button.dataset.move);
   const stop = () => window.dispatchEvent(new CustomEvent('game:move', { detail: 0 }));
