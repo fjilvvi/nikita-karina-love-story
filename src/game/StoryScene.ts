@@ -26,6 +26,20 @@ export class StoryScene extends Phaser.Scene {
 
   constructor() { super('Story'); }
 
+  preload(): void {
+    for (const name of ['club', 'walk', 'cafe', 'morning', 'arrival', 'final']) {
+      this.load.image(`bg-${name}`, `assets/bg-${name}.webp`);
+    }
+    this.load.image('nikita-full', 'assets/nikita-full.webp');
+    this.load.image('karina-full', 'assets/karina-full.webp');
+    this.load.image('friends-full', 'assets/friends.webp');
+    this.load.image('nikita-airport', 'assets/nikita-airport.webp');
+    this.load.image('karina-airport', 'assets/karina-airport.webp');
+    this.load.image('nikita-wedding', 'assets/nikita-wedding.webp');
+    this.load.image('karina-wedding', 'assets/karina-wedding.webp');
+    this.load.image('flower-rich', 'assets/flower-rich.webp');
+  }
+
   create(): void {
     this.makeTextures();
     this.drawStage();
@@ -124,18 +138,20 @@ export class StoryScene extends Phaser.Scene {
         return;
       }
       if (this.flowers.size === 3 && Math.abs(x - 790) < 80) {
-        this.karinaSprite?.setTexture('karina-coat');
+        if (this.karinaSprite?.texture.key !== 'karina-full') this.karinaSprite?.setTexture('karina-coat');
+        this.popHeart(790, 296);
         this.openChallenge();
         return;
       }
     }
     if (this.stage === 2 && Math.abs(x - 590) < 90) { this.openChallenge(); return; }
-    if (this.stage === 3 && Math.abs(x - 720) < 95) { this.openChallenge(); return; }
+    if (this.stage === 3 && Math.abs(x - 810) < 95) { this.openChallenge(); return; }
     if (this.stage === 4 && Math.abs(x - 735) < 90) {
       this.paused = true;
+      const stage = this.stage;
       this.tweens.add({ targets: this.player, x: 700, duration: 340, ease: 'Sine.easeInOut' });
       this.popHeart(705, 280);
-      this.time.delayedCall(520, this.openChallenge, [], this);
+      this.time.delayedCall(520, () => { if (this.stage === stage) this.openChallenge(); });
       return;
     }
     this.tweens.add({ targets: this.helper, alpha: 0.2, duration: 90, yoyo: true });
@@ -188,17 +204,26 @@ export class StoryScene extends Phaser.Scene {
     this.flowerSprites = [];
     this.karinaSprite = undefined;
     const g = this.add.graphics();
-    if (this.stage === 0) this.drawClub(g);
+    const rich = this.textures.exists('bg-club') && this.textures.exists('nikita-full');
+    if (rich) this.drawRichStage(g);
+    else if (this.stage === 0) this.drawClub(g);
     else if (this.stage === 1) this.drawWalk(g);
     else if (this.stage === 2) this.drawCafe(g);
     else if (this.stage === 3) this.drawMorning(g);
     else if (this.stage === 4) this.drawArrival(g);
     else this.drawFinal(g);
     if (this.stage < story.length) {
-      const outfit = this.stage === 4 ? 'nikita-arrival' : this.stage === 1 ? 'nikita-coat' : 'nikita-pixel';
-      const scale = 5.1;
-      this.playerBaseY = this.floor - 19 * scale;
-      this.player = this.add.image(this.stage === 2 ? 185 : 130, this.playerBaseY, outfit).setScale(scale).setDepth(12);
+      if (rich) {
+        const height = 273;
+        this.playerBaseY = this.floor - height / 2;
+        const texture = this.stage === 4 ? 'nikita-airport' : 'nikita-full';
+        this.player = this.add.image(this.stage === 2 ? 165 : 130, this.playerBaseY, texture).setDisplaySize(182, height).setDepth(12);
+      } else {
+        const outfit = this.stage === 4 ? 'nikita-arrival' : this.stage === 1 ? 'nikita-coat' : 'nikita-pixel';
+        const scale = 5.1;
+        this.playerBaseY = this.floor - 19 * scale;
+        this.player = this.add.image(this.stage === 2 ? 185 : 130, this.playerBaseY, outfit).setScale(scale).setDepth(12);
+      }
     }
     const title = this.stage < story.length ? story[this.stage].title : 'Никита + Карина';
     this.add.text(34, 24, `${String(this.stage + 1).padStart(2, '0')} / 06   ${title.toUpperCase()}`, {
@@ -278,6 +303,60 @@ export class StoryScene extends Phaser.Scene {
 
   private person(x: number, feet: number, texture: string, scale = 3): Phaser.GameObjects.Image {
     return this.add.image(x, feet - 19 * scale, texture).setScale(scale).setDepth(11);
+  }
+
+  private personFull(x: number, feet: number, texture: 'nikita-full' | 'karina-full' | 'karina-airport' | 'nikita-wedding' | 'karina-wedding', height = 260): Phaser.GameObjects.Image {
+    return this.add.image(x, feet - height / 2, texture).setDisplaySize(height * 2 / 3, height).setDepth(11);
+  }
+
+  private drawRichStage(g: Phaser.GameObjects.Graphics): void {
+    const name = ['club', 'walk', 'cafe', 'morning', 'arrival', 'final'][this.stage];
+    this.add.image(W / 2, H / 2, `bg-${name}`).setDisplaySize(W, H).setDepth(-10);
+    this.floor = this.stage === 1 ? 454 : 461;
+    if (this.stage === 0) {
+      const friends = this.add.image(795, this.floor - 113, 'friends-full').setDisplaySize(228, 226).setDepth(10);
+      this.tweens.add({ targets: friends, y: friends.y - 4, duration: 690, yoyo: true, repeat: -1 });
+      this.karinaSprite = this.personFull(681, this.floor, 'karina-full', 256);
+      this.tweens.add({ targets: this.karinaSprite, y: this.karinaSprite.y - 5, duration: 550, yoyo: true, repeat: -1 });
+      this.label('КАРИНА ♥', 682, 306, '#fff4e3', '13px');
+      for (const x of [74, 888]) this.sparkle(g, x, 185, 0xffb9db);
+    } else if (this.stage === 1) {
+      for (let i = 0; i < 3; i++) {
+        const flower = this.add.image(FLOWERS[i], 410, 'flower-rich').setDisplaySize(52, 51).setDepth(11);
+        this.flowerSprites.push(flower);
+        this.tweens.add({ targets: flower, y: 404, duration: 650 + i * 100, yoyo: true, repeat: -1 });
+      }
+      this.karinaSprite = this.personFull(790, this.floor, 'karina-full', 262);
+      this.label('КАРИНА', 787, 294, '#fff1dd', '13px');
+      g.fillStyle(0x403354, .94).fillRect(149, 229, 119, 64);
+      g.lineStyle(2, 0xd69dc9).strokeRect(149, 229, 119, 64);
+      this.label('ТЮЗ', 208, 259, '#ffdee5', '22px');
+      this.stars(19);
+    } else if (this.stage === 2) {
+      this.karinaSprite = this.personFull(655, this.floor, 'karina-full', 248);
+      this.label('ПЕРВЫЙ ВЕЧЕР', 580, 300, '#ffe0b9', '14px');
+      this.sparkle(g, 567, 322, 0xffdf9d);
+    } else if (this.stage === 3) {
+      this.label('НАПИСАТЬ КАРИНЕ', 800, 293, '#fff2df', '12px');
+      this.sparkle(g, 810, 250, 0xffcfb6);
+      for (let i = 0; i < 13; i++) {
+        const bit = this.add.rectangle((i * 113 + 21) % W, 100 + (i * 79) % 250, 3, 3, 0xffe2ae, .3).setDepth(8);
+        this.tweens.add({ targets: bit, alpha: .8, duration: 800 + i * 90, yoyo: true, repeat: -1 });
+      }
+    } else if (this.stage === 4) {
+      this.karinaSprite = this.personFull(735, this.floor, 'karina-airport', 260);
+      this.label('КАРИНА', 735, 296, '#fff1df', '13px');
+      this.sparkle(g, 736, 300, 0xffcad9);
+    } else {
+      this.personFull(433, this.floor, 'nikita-wedding', 270);
+      this.personFull(550, this.floor, 'karina-wedding', 270);
+      this.label('НИКИТА ♥ КАРИНА', 480, 125, '#fff4d8', '26px');
+      for (let i = 0; i < 62; i++) {
+        const x = (i * 103 + 19) % W, y = (i * 77 + 13) % 360;
+        const bit = this.add.rectangle(x, y, 4, 7, i % 2 ? 0xffd6a7 : 0xff99aa, .85).setDepth(15);
+        this.tweens.add({ targets: bit, y: y + 75, angle: i % 2 ? 80 : -80, alpha: .25, duration: 1400 + i % 5 * 400, yoyo: true, repeat: -1 });
+      }
+    }
   }
 
   private popHeart(x: number, y: number): void {

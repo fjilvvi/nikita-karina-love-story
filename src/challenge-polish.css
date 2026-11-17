@@ -1,0 +1,6 @@
+.coat-scene{height:150px}
+.coat-character{left:14%;bottom:-4px;width:100px;height:148px;object-fit:contain;image-rendering:pixelated;font-size:0}
+.coat-character.karina{left:auto;right:12%}
+.coat-moving{filter:drop-shadow(0 0 8px #ffd5a8)}
+.tray-slots span.preview{background:#79546f;border-color:#ffb5c4;box-shadow:0 0 18px #f5a3b477}
+@media(max-width:700px){.coat-scene{height:120px}.coat-character{height:118px;width:81px}}

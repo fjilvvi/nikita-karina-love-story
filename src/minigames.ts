@@ -8,6 +8,7 @@ export class MiniGames {
   private done: Done = () => {};
   private raf = 0;
   private active = false;
+  private runId = 0;
   private keyHandler = (event: KeyboardEvent): void => {
     if (!this.active) return;
     const key = event.key;
@@ -34,6 +35,7 @@ export class MiniGames {
   }
 
   close(): void {
+    this.runId++;
     cancelAnimationFrame(this.raf);
     this.active = false;
     window.removeEventListener('keydown', this.keyHandler);
@@ -42,6 +44,10 @@ export class MiniGames {
   }
 
   private finish(): void { const done = this.done; this.close(); done(); }
+  private later(delay: number, callback: () => void): void {
+    const run = this.runId;
+    setTimeout(() => { if (this.active && this.runId === run) callback(); }, delay);
+  }
   private body(): HTMLElement { return this.root.querySelector<HTMLElement>('#challenge-body')!; }
   private feedback(text: string, good = true): void {
     const el = this.root.querySelector<HTMLElement>('.challenge-feedback');
@@ -68,7 +74,7 @@ export class MiniGames {
         hits++;
         this.feedback(hits === 4 ? 'Идеально! Теперь повтори движение.' : 'В ТОЧКУ! ♥');
         body.querySelector('#beat-score')!.textContent = `РИТМ ${hits} / 4`;
-        if (hits === 4) { cancelAnimationFrame(this.raf); setTimeout(() => { if (this.active) this.dance(); }, 600); }
+        if (hits === 4) { cancelAnimationFrame(this.raf); this.later(600, () => this.dance()); }
       } else this.feedback('Чуть раньше или позже — попробуй снова', false);
     });
   }
@@ -83,7 +89,7 @@ export class MiniGames {
       body.querySelector(`[data-step="${step}"]`)?.classList.add('done');
       step++;
       this.feedback(step === 4 ? 'Карина зовёт танцевать вместе ♥' : 'Отлично, дальше!');
-      if (step === 4) setTimeout(() => { if (this.active) this.finish(); }, 750);
+      if (step === 4) this.later(750, () => this.finish());
     }));
   }
 
@@ -91,30 +97,52 @@ export class MiniGames {
     let position = 0;
     let won = false;
     const body = this.body();
-    body.innerHTML = `<div class="challenge-centered"><p class="challenge-kicker">УРОВЕНЬ 02 · У ТЮЗА</p><h2>Тёплый <em>жест.</em></h2><p>Букет уже у Карины. Поймай момент, чтобы накинуть пальто ей на плечи.</p><div class="coat-scene"><span class="coat-character">♙</span><span class="coat-character karina">♙</span><span class="coat-moving" id="coat-moving">▰</span><span class="coat-target">♥</span></div><div class="challenge-feedback" aria-live="polite">Поймай пальто рядом с сердцем</div><button class="challenge-primary" data-action="hit" type="button">✦ ОТДАТЬ ПАЛЬТО</button></div>`;
+    body.innerHTML = `<div class="challenge-centered"><p class="challenge-kicker">УРОВЕНЬ 02 · У ТЮЗА</p><h2>Тёплый <em>жест.</em></h2><p>Букет уже у Карины. Поймай момент, чтобы накинуть пальто ей на плечи.</p><div class="coat-scene"><img class="coat-character" src="assets/nikita-full.webp" alt=""><img class="coat-character karina" src="assets/karina-full.webp" alt=""><span class="coat-moving" id="coat-moving">🧥</span><span class="coat-target">♥</span></div><div class="challenge-feedback" aria-live="polite">Поймай пальто рядом с сердцем</div><button class="challenge-primary" data-action="hit" type="button">✦ ОТДАТЬ ПАЛЬТО</button></div>`;
     const moving = body.querySelector<HTMLElement>('#coat-moving')!;
     const start = performance.now();
     const animate = (now: number) => { if (!this.active || !moving.isConnected) return; position = (Math.sin((now - start) * Math.PI / 1000 - Math.PI / 2) + 1) / 2; moving.style.left = `${position * 80 + 10}%`; this.raf = requestAnimationFrame(animate); };
     this.raf = requestAnimationFrame(animate);
     body.querySelector('[data-action="hit"]')?.addEventListener('click', () => {
       if (won) return;
-      if (position > .72) { won = true; this.feedback('Согрелась ♥'); setTimeout(() => { if (this.active) this.finish(); }, 650); }
+      if (position > .72) { won = true; this.feedback('Согрелась ♥'); this.later(650, () => this.finish()); }
       else this.feedback('Чуть ближе к Карине', false);
     });
   }
 
   private tray(): void {
     let count = 0;
+    let locked = true;
     const body = this.body();
-    body.innerHTML = `<div class="challenge-centered"><p class="challenge-kicker">УРОВЕНЬ 03 · КИФАЗ НА ТРАНСПОРТНОЙ</p><h2>Первый <em>разговор.</em></h2><p>Собери вечер за одним столиком: выбери еду, затем время для разговора. Это игровые детали, а не точный заказ.</p><div class="tray-slots"><span id="tray-one">?</span><span id="tray-two">?</span><span id="tray-three">?</span></div><div class="tray-options"><button data-item="🍟" type="button">🍟<small>ПЕРЕКУС</small></button><button data-item="🥤" type="button">🥤<small>НАПИТОК</small></button><button data-item="♥" type="button">♥<small>РАЗГОВОР</small></button></div><div class="challenge-feedback" aria-live="polite">Порядок: перекус → напиток → разговор</div></div>`;
-    const expected = ['🍟', '🥤', '♥'];
+    body.innerHTML = `<div class="challenge-centered"><p class="challenge-kicker">УРОВЕНЬ 03 · КИФАЗ НА ТРАНСПОРТНОЙ</p><h2>Первый <em>разговор.</em></h2><p>Запомни три игровых символа вечера, а когда они исчезнут — повтори порядок. Это не точный заказ Никиты и Карины.</p><div class="tray-slots"><span id="tray-one">?</span><span id="tray-two">?</span><span id="tray-three">?</span></div><div class="tray-options"><button data-item="♥" type="button">♥<small>РАЗГОВОР</small></button><button data-item="🍟" type="button">🍟<small>ПЕРЕКУС</small></button><button data-item="🥤" type="button">🥤<small>НАПИТОК</small></button></div><div class="challenge-feedback" aria-live="polite">Запомни порядок...</div></div>`;
+    const expected = ['🥤', '🍟', '♥'];
+    const slots = ['one', 'two', 'three'].map(name => body.querySelector<HTMLElement>(`#tray-${name}`)!);
+    const showPattern = (): void => {
+      locked = true;
+      slots.forEach((slot, index) => { slot.textContent = expected[index]; slot.classList.add('preview'); });
+      this.feedback('Запомни порядок...');
+      setTimeout(() => {
+        if (!body.isConnected) return;
+        slots.forEach(slot => { slot.textContent = '?'; slot.classList.remove('preview'); });
+        locked = false;
+        this.feedback('Теперь повтори его по памяти');
+      }, 2400);
+    };
+    showPattern();
     body.querySelectorAll<HTMLButtonElement>('[data-item]').forEach(button => button.addEventListener('click', () => {
-      if (button.dataset.item !== expected[count]) { this.feedback('Посмотри на подсказку и попробуй снова', false); return; }
-      body.querySelector(`#tray-${['one','two','three'][count]}`)!.textContent = expected[count];
+      if (locked) return;
+      if (button.dataset.item !== expected[count]) {
+        count = 0;
+        body.querySelectorAll<HTMLButtonElement>('[data-item]').forEach(item => item.disabled = false);
+        this.feedback('Попробуй ещё раз — подсказка вернётся', false);
+        setTimeout(() => { if (body.isConnected) showPattern(); }, 400);
+        locked = true;
+        return;
+      }
+      slots[count].textContent = expected[count];
       button.disabled = true;
       count++;
       this.feedback(count === 3 ? 'Вечер хочется продолжать ♥' : 'Хорошо, что дальше?');
-      if (count === 3) setTimeout(() => { if (this.active) this.finish(); }, 850);
+      if (count === 3) this.later(850, () => this.finish());
     }));
   }
 
@@ -130,7 +158,7 @@ export class MiniGames {
       body.querySelectorAll<HTMLButtonElement>('[data-phrase]').forEach(item => item.classList.toggle('selected', selected.includes(item.dataset.phrase!)));
     }));
     body.querySelector('[data-action="send"]')?.addEventListener('click', () => {
-      if (selected.includes('Как дела?') && selected.includes('Проснулись?')) { this.feedback('Карина уже собирается в парк ♥'); setTimeout(() => { if (this.active) this.finish(); }, 900); }
+      if (selected.includes('Как дела?') && selected.includes('Проснулись?')) { this.feedback('Карина уже собирается в парк ♥'); this.later(900, () => this.finish()); }
       else this.feedback('Никита спросил, как дела и проснулись ли они', false);
     });
   }
@@ -146,7 +174,7 @@ export class MiniGames {
       button.disabled = true;
       step++;
       this.feedback(step === 3 ? 'И вот они снова вместе в Омске ♥' : 'Да! Что было дальше?');
-      if (step === 3) setTimeout(() => { if (this.active) this.finish(); }, 900);
+      if (step === 3) this.later(900, () => this.finish());
     }));
   }
 }

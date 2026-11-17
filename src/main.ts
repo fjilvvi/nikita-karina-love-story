@@ -5,6 +5,8 @@ import { MiniGames } from './minigames';
 import './style.css';
 import './challenge.css';
 import './polish.css';
+import './level-select.css';
+import './challenge-polish.css';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('App mount not found');
@@ -27,7 +29,7 @@ app.innerHTML = `
           <div class="hero-meta"><span>✦</span> ОСНОВАНО НА ВОСПОМИНАНИЯХ НИКИТЫ <span class="meta-divider">/</span> ОМСК</div>
         </div>
         <div class="game-column" id="game-area">
-          <div class="game-frame" id="game-frame"><div class="frame-top"><span class="live-dot"></span> СЕЙЧАС В ИГРЕ <span class="frame-title" id="frame-title">ГЛАВА 01: ТАНЦПОЛ</span><button class="expand-button" id="expand-button" type="button" aria-label="Развернуть игру на весь экран">⛶</button></div><div id="game" class="game-canvas" role="application" aria-label="Пиксельная история Никиты и Карины"></div><div class="game-hud" aria-hidden="true"><div class="hud-panel"><img src="assets/nikita-pixel-portrait.png" alt=""><span><small>НИКИТА · ОМСК</small><strong id="hud-chapter">ТАНЦПОЛ</strong></span></div><div class="hud-energy"><small>ИСТОРИЯ</small><span>♥ ♥ ♥ ♥ ♥</span></div><div class="hud-prompt" id="hud-prompt">E — ПОТАНЦЕВАТЬ</div></div><div class="frame-bottom"><span id="progress-label">✦ ГЛАВА 01 / 06</span><span>НИКИТА + КАРИНА</span><span>16 BIT LOVE STORY</span></div></div>
+          <div class="game-frame" id="game-frame"><div class="frame-top"><span class="live-dot"></span> СЕЙЧАС В ИГРЕ <span class="frame-title" id="frame-title">ГЛАВА 01: ТАНЦПОЛ</span><button class="expand-button" id="expand-button" type="button" aria-label="Развернуть игру на весь экран">⛶</button></div><div id="game" class="game-canvas" role="application" aria-label="Пиксельная история Никиты и Карины"><div class="game-loading" id="game-loading"><span>♥</span><strong>ЗАГРУЖАЕМ ОМСК...</strong><small>СОБИРАЕМ ИСТОРИЮ ПО ПИКСЕЛЯМ</small></div></div><div class="game-hud" aria-hidden="true"><div class="hud-panel"><img src="assets/nikita-pixel-portrait.png" alt=""><span><small>НИКИТА · ОМСК</small><strong id="hud-chapter">ТАНЦПОЛ</strong></span></div><div class="hud-energy"><small>ИСТОРИЯ</small><span>♥ ♥ ♥ ♥ ♥</span></div><div class="hud-prompt" id="hud-prompt">E — ПОТАНЦЕВАТЬ</div></div><div class="frame-bottom"><span id="progress-label">✦ ГЛАВА 01 / 06</span><span>НИКИТА + КАРИНА</span><span>16 BIT LOVE STORY</span></div></div>
           <div class="mobile-controls" aria-label="Управление игрой"><button type="button" class="control-button" data-move="-1" aria-label="Идти влево">◀</button><button type="button" class="control-button" data-move="1" aria-label="Идти вправо">▶</button><button type="button" class="control-button action-button" id="interact-button">✦ ДЕЙСТВИЕ</button></div><p class="mobile-hint" id="mobile-hint">${story[0].hint}</p>
           <div class="game-caption"><span class="caption-star">✳</span><span>СТРЕЛКИ ИЛИ A/D — ИДТИ · E ИЛИ ПРОБЕЛ — ДЕЙСТВИЕ</span><div class="portrait-hud"><span class="portrait-badge"><img src="assets/nikita-pixel-portrait.png" alt="Пиксельный портрет Никиты"><small>НИКИТА</small></span><span class="hud-heart">♥</span><span class="portrait-badge"><img src="assets/karina-pixel-portrait.png" alt="Пиксельный портрет Карины"><small>КАРИНА</small></span></div></div>
         </div>
@@ -103,6 +105,8 @@ window.addEventListener('game:challenge', ((event: CustomEvent<number>) => {
 }) as EventListener);
 
 window.addEventListener('game:stage', ((event: CustomEvent<number>) => {
+  const loading = document.querySelector<HTMLElement>('#game-loading');
+  if (loading) loading.hidden = true;
   const index = event.detail;
   if (progressLabel) progressLabel.textContent = `✦ ГЛАВА ${String(index + 1).padStart(2, '0')} / 06`;
   if (frameTitle) frameTitle.textContent = `ГЛАВА ${String(index + 1).padStart(2, '0')}: ${chapters[index].title.toUpperCase()}`;
