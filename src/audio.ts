@@ -28,7 +28,7 @@ class ProceduralScore {
   private volume = Number.isFinite(storedVolume) ? clamp(storedVolume) : .72;
   private ducked = false;
   get isEnabled(): boolean { return this.enabled; }
-  get isPlaying(): boolean { return this.started && this.enabled; }
+  get isPlaying(): boolean { return this.started && this.enabled && this.ctx?.state === 'running' && !!this.timer; }
   get currentVolume(): number { return this.volume; }
   get currentTrack(): Track { return soundtrack[this.stage]; }
   get beatDurationMs(): number { return 60000 / this.currentTrack.bpm; }
@@ -40,7 +40,12 @@ class ProceduralScore {
     this.started = true;
     if (!this.enabled) return;
     if (!this.ctx) this.init();
-    void this.ctx!.resume().then(() => { if (this.enabled && !this.timer) this.activate(); });
+    // Schedule a source within the click gesture: Safari may not unlock audio
+    // if the first oscillator is created only after resume() resolves.
+    if (!this.timer) this.activate();
+    this.setMasterLevel();
+    if (this.ctx!.state !== 'running') void this.ctx!.resume().then(() => this.notifyState()).catch(() => this.notifyState());
+    this.notifyState();
   }
   toggle(): boolean {
     this.enabled = !this.enabled;
@@ -55,7 +60,7 @@ class ProceduralScore {
     const next = Math.min(Math.max(stage, 0), soundtrack.length - 1);
     if (this.stage === next && this.timer) return;
     this.stage = next;
-    if (this.ctx?.state === 'running' && this.enabled && this.started) this.activate();
+    if (this.ctx && this.enabled && this.started) this.activate();
   }
   cue(kind: 'hit' | 'miss' | 'heart' | 'flower' | 'send' | 'complete'): void {
     if (!this.enabled || this.ctx?.state !== 'running' || !this.master) return;
@@ -65,6 +70,7 @@ class ProceduralScore {
   private init(): void {
     const ctx = new AudioContext();
     this.ctx = ctx;
+    ctx.onstatechange = () => this.notifyState();
     const master = ctx.createGain();
     const compressor = ctx.createDynamicsCompressor();
     compressor.threshold.value = -20; compressor.ratio.value = 3;
@@ -84,6 +90,7 @@ class ProceduralScore {
   private setMasterLevel(): void {
     if (this.ctx && this.master) this.master.gain.setTargetAtTime(this.enabled ? this.volume * (this.ducked ? .07 : .4) : 0, this.ctx.currentTime, .06);
   }
+  private notifyState(): void { window.dispatchEvent(new Event('audio:state')); }
   private activate(): void {
     const ctx = this.ctx!;
     if (this.timer) clearInterval(this.timer);

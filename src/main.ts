@@ -30,7 +30,7 @@ app.innerHTML = `
           <div class="hero-meta"><span>✦</span> ОСНОВАНО НА ВОСПОМИНАНИЯХ НИКИТЫ <span class="meta-divider">/</span> ОМСК</div>
         </div>
         <div class="game-column" id="game-area">
-          <div class="game-frame" id="game-frame"><div class="frame-top"><span class="live-dot"></span> СЕЙЧАС В ИГРЕ <span class="frame-title" id="frame-title">ГЛАВА 01: ТАНЦПОЛ</span><button class="expand-button" id="expand-button" type="button" aria-label="Развернуть игру на весь экран">⛶</button></div><div id="game" class="game-canvas" role="application" aria-label="Пиксельная история Никиты и Карины"><div class="game-loading" id="game-loading"><span>♥</span><strong>ЗАГРУЖАЕМ ОМСК...</strong><small>СОБИРАЕМ ИСТОРИЮ ПО ПИКСЕЛЯМ</small></div></div><div class="game-hud" aria-hidden="true"><div class="hud-panel"><img src="assets/nikita-pixel-portrait.png" alt=""><span><small>НИКИТА · ОМСК</small><strong id="hud-chapter">ТАНЦПОЛ</strong></span></div><div class="hud-energy"><small>ИСТОРИЯ</small><span>♥ ♥ ♥ ♥ ♥</span></div><div class="hud-prompt" id="hud-prompt">E — ПОТАНЦЕВАТЬ</div></div><div class="frame-bottom"><span id="progress-label">✦ ГЛАВА 01 / 06</span><span>НИКИТА + КАРИНА</span><span>16 BIT LOVE STORY</span></div></div>
+          <div class="game-frame" id="game-frame"><div class="frame-top"><span class="live-dot"></span> СЕЙЧАС В ИГРЕ <span class="frame-title" id="frame-title">ГЛАВА 01: ТАНЦПОЛ</span><button class="frame-sound-button" id="frame-sound-button" type="button" aria-label="Включить музыку">♪</button><button class="expand-button" id="expand-button" type="button" aria-label="Развернуть игру на весь экран">⛶</button></div><div id="game" class="game-canvas" role="application" aria-label="Пиксельная история Никиты и Карины"><div class="game-loading" id="game-loading"><span>♥</span><strong>ЗАГРУЖАЕМ ОМСК...</strong><small>СОБИРАЕМ ИСТОРИЮ ПО ПИКСЕЛЯМ</small></div></div><div class="game-hud" aria-hidden="true"><div class="hud-panel"><img src="assets/nikita-pixel-portrait.png" alt=""><span><small>НИКИТА · ОМСК</small><strong id="hud-chapter">ТАНЦПОЛ</strong></span></div><div class="hud-energy"><small>ИСТОРИЯ</small><span>♥ ♥ ♥ ♥ ♥</span></div><div class="hud-prompt" id="hud-prompt">E — ПОТАНЦЕВАТЬ</div></div><div class="frame-bottom"><span id="progress-label">✦ ГЛАВА 01 / 06</span><span>НИКИТА + КАРИНА</span><span>16 BIT LOVE STORY</span></div><div class="fullscreen-controls" aria-label="Управление в полноэкранном режиме"><button type="button" class="fullscreen-control" data-move="-1" aria-label="Идти влево">◀</button><button type="button" class="fullscreen-control" data-move="1" aria-label="Идти вправо">▶</button><button type="button" class="fullscreen-control fullscreen-action" data-interact aria-label="Действие">✦ ДЕЙСТВИЕ</button></div></div>
           <div class="music-station" id="music-station" aria-label="Музыка игры"><div class="station-icon" aria-hidden="true">♫</div><div class="station-copy"><small id="station-status">ORIGINAL SOUNDTRACK / ГОТОВ К ИГРЕ</small><strong id="track-title">01 · Ночь в DOSKI</strong><span id="track-mood">НЕОНОВЫЙ ТАНЦПОЛ · 112 BPM</span></div><div class="station-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><label class="station-volume">ГРОМКОСТЬ<input id="volume-range" type="range" min="0" max="100" value="72" aria-label="Громкость музыки"></label></div>
           <div class="mobile-controls" aria-label="Управление игрой"><button type="button" class="control-button" data-move="-1" aria-label="Идти влево">◀</button><button type="button" class="control-button" data-move="1" aria-label="Идти вправо">▶</button><button type="button" class="control-button action-button" id="interact-button">✦ ДЕЙСТВИЕ</button></div><p class="mobile-hint" id="mobile-hint">${story[0].hint}</p>
           <div class="game-caption"><span class="caption-star">✳</span><span>СТРЕЛКИ ИЛИ A/D — ИДТИ · E ИЛИ ПРОБЕЛ — ДЕЙСТВИЕ</span><div class="portrait-hud"><span class="portrait-badge"><img src="assets/nikita-pixel-portrait.png" alt="Пиксельный портрет Никиты"><small>НИКИТА</small></span><span class="hud-heart">♥</span><span class="portrait-badge"><img src="assets/karina-pixel-portrait.png" alt="Пиксельный портрет Карины"><small>КАРИНА</small></span></div></div>
@@ -62,7 +62,26 @@ app.innerHTML = `
 
 const gameMount = document.querySelector<HTMLElement>('#game');
 if (!gameMount) throw new Error('Game mount not found');
-mountGame(gameMount);
+const gameHud = document.querySelector<HTMLElement>('.game-hud');
+if (gameHud) gameMount.append(gameHud);
+const phaserGame = mountGame(gameMount);
+function refreshGameScale(): void {
+  requestAnimationFrame(() => requestAnimationFrame(() => phaserGame.scale.refresh()));
+}
+let gameReady = gameMount.dataset.ready === 'true';
+let queuedStage: number | null = null;
+function enterStage(index: number): void {
+  if (!gameReady) { queuedStage = index; return; }
+  window.dispatchEvent(new CustomEvent('game:jump', { detail: index }));
+}
+window.addEventListener('game:ready', () => {
+  gameReady = true;
+  if (queuedStage !== null) {
+    const stage = queuedStage;
+    queuedStage = null;
+    requestAnimationFrame(() => enterStage(stage));
+  }
+});
 
 const startButton = document.querySelector<HTMLButtonElement>('#start-button');
 const gameArea = document.querySelector<HTMLElement>('#game-area');
@@ -79,25 +98,33 @@ let started = false;
 const siteShell = document.querySelector<HTMLElement>('.site-shell');
 const station = document.querySelector<HTMLElement>('#music-station');
 const soundButton = document.querySelector<HTMLButtonElement>('#sound-button');
+const frameSoundButton = document.querySelector<HTMLButtonElement>('#frame-sound-button');
 const volumeRange = document.querySelector<HTMLInputElement>('#volume-range');
 
 function updateSoundUI(): void {
   const enabled = chipMusic.isEnabled;
+  const playing = chipMusic.isPlaying;
   if (soundButton) {
-    soundButton.textContent = enabled ? '♪ ЗВУК ВКЛ' : '♪ ЗВУК ВЫКЛ';
-    soundButton.setAttribute('aria-label', enabled ? 'Выключить музыку' : 'Включить музыку');
-    soundButton.setAttribute('aria-pressed', String(enabled));
+    soundButton.textContent = !enabled ? '♪ ЗВУК ВЫКЛ' : playing ? '♪ ЗВУК ВКЛ' : '♪ ВКЛЮЧИТЬ ЗВУК';
+    soundButton.setAttribute('aria-label', !enabled ? 'Включить музыку' : playing ? 'Выключить музыку' : 'Запустить музыку');
+    soundButton.setAttribute('aria-pressed', String(playing));
+  }
+  if (frameSoundButton) {
+    frameSoundButton.textContent = playing ? '♫' : '♪';
+    frameSoundButton.setAttribute('aria-label', playing ? 'Выключить музыку' : 'Включить музыку');
+    frameSoundButton.setAttribute('aria-pressed', String(playing));
   }
   if (station) {
     station.dataset.muted = String(!enabled);
-    station.dataset.playing = String(chipMusic.isPlaying);
+    station.dataset.playing = String(playing);
   }
   const stationStatus = document.querySelector<HTMLElement>('#station-status');
-  if (stationStatus) stationStatus.textContent = !enabled ? 'ORIGINAL SOUNDTRACK / ЗВУК ВЫКЛЮЧЕН' : chipMusic.isPlaying ? 'ORIGINAL SOUNDTRACK / СЕЙЧАС ИГРАЕТ' : 'ORIGINAL SOUNDTRACK / ГОТОВ К ИГРЕ';
+  if (stationStatus) stationStatus.textContent = !enabled ? 'ORIGINAL SOUNDTRACK / ЗВУК ВЫКЛЮЧЕН' : playing ? 'ORIGINAL SOUNDTRACK / СЕЙЧАС ИГРАЕТ' : started ? 'ORIGINAL SOUNDTRACK / НАЖМИТЕ ♪ ДЛЯ ЗВУКА' : 'ORIGINAL SOUNDTRACK / ГОТОВ К ИГРЕ';
 }
 if (volumeRange) volumeRange.value = String(Math.round(chipMusic.currentVolume * 100));
 volumeRange?.addEventListener('input', () => chipMusic.setVolume(Number(volumeRange.value) / 100));
 updateSoundUI();
+window.addEventListener('audio:state', updateSoundUI);
 function updateVideoDucking(): void {
   const playing = [...document.querySelectorAll<HTMLVideoElement>('video')].some(video => !video.paused && !video.muted);
   chipMusic.setVideoDucked(playing);
@@ -107,17 +134,29 @@ document.addEventListener('pause', updateVideoDucking, true);
 document.addEventListener('ended', updateVideoDucking, true);
 
 function scrollToGame(): void { gameArea?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-function startGame(): void {
+function isMobileView(): boolean { return window.matchMedia('(max-width: 650px), (pointer: coarse)').matches; }
+function openMobileGame(): boolean {
+  if (!isMobileView()) return false;
+  const mobileFrame = document.querySelector<HTMLElement>('#game-frame');
+  if (!mobileFrame) return false;
+  mobileFrame.classList.add('pseudo-fullscreen');
+  document.body.classList.add('game-expanded');
+  syncGameOverlays();
+  updateExpandLabel();
+  refreshGameScale();
+  return true;
+}
+function startGame(scroll = true): void {
   miniGames?.close();
   chipMusic.start();
+  started = true;
   updateSoundUI();
-  if (started) window.dispatchEvent(new CustomEvent('game:jump', { detail: 0 }));
-  else { started = true; window.dispatchEvent(new Event('game:start')); }
+  enterStage(0);
   if (startButton) startButton.innerHTML = '<span class="button-arrow">↻</span> ИГРАТЬ СНАЧАЛА';
   if (completionModal) completionModal.hidden = true;
-  scrollToGame();
+  if (scroll && !openMobileGame()) scrollToGame();
 }
-startButton?.addEventListener('click', startGame);
+startButton?.addEventListener('click', () => startGame());
 
 document.querySelectorAll<HTMLButtonElement>('[data-chapter]').forEach((button) => {
   button.addEventListener('click', () => {
@@ -128,8 +167,8 @@ document.querySelectorAll<HTMLButtonElement>('[data-chapter]').forEach((button) 
     if (startButton) startButton.innerHTML = '<span class="button-arrow">↻</span> ИГРАТЬ СНАЧАЛА';
     if (memoryModal) memoryModal.hidden = true;
     if (completionModal) completionModal.hidden = true;
-    window.dispatchEvent(new CustomEvent('game:jump', { detail: Number(button.dataset.chapter) }));
-    scrollToGame();
+    enterStage(Number(button.dataset.chapter));
+    if (!openMobileGame()) scrollToGame();
   });
 });
 
@@ -144,7 +183,7 @@ window.addEventListener('game:stage', ((event: CustomEvent<number>) => {
   if (progressLabel) progressLabel.textContent = `✦ ГЛАВА ${String(index + 1).padStart(2, '0')} / 06`;
   if (frameTitle) frameTitle.textContent = `ГЛАВА ${String(index + 1).padStart(2, '0')}: ${chapters[index].title.toUpperCase()}`;
   if (hudChapter) hudChapter.textContent = chapters[index].title.toUpperCase();
-  if (hudPrompt) hudPrompt.textContent = ['E — ТАНЦЕВАТЬ', 'E — СОБРАТЬ ЦВЕТЫ', 'E — ПРИСЕСТЬ', 'E — НАПИСАТЬ', 'E — ВСТРЕТИТЬ', '♥ — НАВСЕГДА'][index];
+  if (hudPrompt) hudPrompt.textContent = ['E — ТАНЦЕВАТЬ', 'E — СОБРАТЬ ЦВЕТЫ', 'E — ЗАБРАТЬ ПОДНОС', 'E — НАПИСАТЬ', 'E — ВСТРЕТИТЬ', '♥ — НАВСЕГДА'][index];
   chipMusic.setStage(index);
   if (siteShell) siteShell.dataset.stage = String(index);
   const track = soundtrack[index];
@@ -161,13 +200,51 @@ window.addEventListener('game:flowers', ((event: CustomEvent<number>) => {
   chipMusic.cue('flower');
   if (hudPrompt) hudPrompt.textContent = event.detail === 3 ? 'E — ОТДАТЬ БУКЕТ И ПАЛЬТО' : `БУКЕТ ${event.detail} / 3 · E — СОБРАТЬ`;
 }) as EventListener);
-
-document.querySelector<HTMLButtonElement>('#expand-button')?.addEventListener('click', () => {
-  const frame = document.querySelector<HTMLElement>('#game-frame');
-  if (!frame) return;
-  if (document.fullscreenElement) document.exitFullscreen();
-  else frame.requestFullscreen?.();
+window.addEventListener('game:cafe-order', () => {
+  chipMusic.cue('hit');
+  if (hudPrompt) hudPrompt.textContent = 'E — СЕСТЬ ЗА СТОЛИК';
+  const mobileHint = document.querySelector<HTMLElement>('#mobile-hint');
+  if (mobileHint) mobileHint.textContent = 'Поднос готов. Теперь иди к столику справа, где ждёт Карина.';
 });
+
+const frame = document.querySelector<HTMLElement>('#game-frame');
+const expandButton = document.querySelector<HTMLButtonElement>('#expand-button');
+function syncGameOverlays(): void {
+  const expanded = document.fullscreenElement === frame || !!frame?.classList.contains('pseudo-fullscreen');
+  const host = expanded && frame ? frame : app!;
+  for (const overlay of [challengeRoot, memoryModal, completionModal]) {
+    if (overlay && overlay.parentElement !== host) host.append(overlay);
+  }
+}
+function updateExpandLabel(): void {
+  const expanded = !!document.fullscreenElement || !!frame?.classList.contains('pseudo-fullscreen');
+  expandButton?.setAttribute('aria-label', expanded ? 'Свернуть игру' : 'Развернуть игру на весь экран');
+  if (expandButton) expandButton.textContent = isMobileView() ? expanded ? '✕ ЗАКРЫТЬ' : '⛶ ВЕСЬ ЭКРАН' : '⛶';
+}
+expandButton?.addEventListener('click', () => {
+  if (!frame) return;
+  if (document.fullscreenElement) { void document.exitFullscreen(); return; }
+  if (frame.classList.contains('pseudo-fullscreen')) { frame.classList.remove('pseudo-fullscreen'); document.body.classList.remove('game-expanded'); syncGameOverlays(); updateExpandLabel(); refreshGameScale(); return; }
+  if (!started) startGame(false);
+  else if (!chipMusic.isPlaying && chipMusic.isEnabled) chipMusic.start();
+  updateSoundUI();
+  if (openMobileGame()) return;
+  if (frame.requestFullscreen) {
+    void frame.requestFullscreen().then(() => { document.body.classList.add('game-expanded'); syncGameOverlays(); updateExpandLabel(); refreshGameScale(); }).catch(() => { frame.classList.add('pseudo-fullscreen'); document.body.classList.add('game-expanded'); syncGameOverlays(); updateExpandLabel(); refreshGameScale(); });
+  } else { frame.classList.add('pseudo-fullscreen'); document.body.classList.add('game-expanded'); syncGameOverlays(); updateExpandLabel(); refreshGameScale(); }
+});
+document.addEventListener('fullscreenchange', () => { document.body.classList.toggle('game-expanded', !!document.fullscreenElement); syncGameOverlays(); updateExpandLabel(); refreshGameScale(); });
+window.addEventListener('resize', updateExpandLabel);
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && frame?.classList.contains('pseudo-fullscreen')) {
+    frame.classList.remove('pseudo-fullscreen');
+    document.body.classList.remove('game-expanded');
+    syncGameOverlays();
+    updateExpandLabel();
+    refreshGameScale();
+  }
+});
+updateExpandLabel();
 
 window.addEventListener('game:memory', ((event: CustomEvent<number>) => {
   const index = event.detail;
@@ -197,17 +274,27 @@ function closeMemoryAndContinue(): void {
 }
 document.querySelector('#memory-next')?.addEventListener('click', closeMemoryAndContinue);
 window.addEventListener('game:complete', () => { chipMusic.cue('complete'); if (completionModal) completionModal.hidden = false; });
-document.querySelector('#replay-button')?.addEventListener('click', startGame);
+document.querySelector('#replay-button')?.addEventListener('click', () => startGame());
 document.querySelector('#close-modal')?.addEventListener('click', () => {
   if (completionModal) completionModal.hidden = true;
   document.querySelector('#archive')?.scrollIntoView({ behavior: 'smooth' });
 });
-document.querySelector('#interact-button')?.addEventListener('click', () => window.dispatchEvent(new Event('game:interact')));
-soundButton?.addEventListener('click', () => { chipMusic.toggle(); updateSoundUI(); });
+document.querySelectorAll<HTMLButtonElement>('#interact-button,[data-interact]').forEach(button => button.addEventListener('click', () => window.dispatchEvent(new Event('game:interact'))));
+function toggleSound(): void {
+  if (chipMusic.isEnabled && !chipMusic.isPlaying) chipMusic.start();
+  else chipMusic.toggle();
+  updateSoundUI();
+}
+soundButton?.addEventListener('click', toggleSound);
+frameSoundButton?.addEventListener('click', toggleSound);
 document.querySelectorAll<HTMLButtonElement>('[data-move]').forEach((button) => {
   const direction = Number(button.dataset.move);
   const stop = () => window.dispatchEvent(new CustomEvent('game:move', { detail: 0 }));
-  button.addEventListener('pointerdown', (event) => { event.preventDefault(); button.setPointerCapture(event.pointerId); window.dispatchEvent(new CustomEvent('game:move', { detail: direction })); });
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    window.dispatchEvent(new CustomEvent('game:move', { detail: direction }));
+    try { button.setPointerCapture(event.pointerId); } catch { /* The move event still works without pointer capture. */ }
+  });
   button.addEventListener('pointerup', stop);
   button.addEventListener('pointercancel', stop);
   button.addEventListener('lostpointercapture', stop);

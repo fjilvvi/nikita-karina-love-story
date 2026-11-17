@@ -18,8 +18,11 @@ export class StoryScene extends Phaser.Scene {
   private keyLeft = false;
   private keyRight = false;
   private playerBaseY = 0;
+  private lastFrameTime = 0;
   private flowers = new Set<number>();
   private flowerSprites: Phaser.GameObjects.Image[] = [];
+  private cafeTrayCollected = false;
+  private playerShadow?: Phaser.GameObjects.Ellipse;
   private status!: Phaser.GameObjects.Text;
   private helper!: Phaser.GameObjects.Text;
   private initialVeil?: Phaser.GameObjects.Container;
@@ -68,6 +71,12 @@ export class StoryScene extends Phaser.Scene {
       window.removeEventListener('game:challenge-cancel', this.cancelChallenge);
       window.removeEventListener('keydown', this.keyDown);
       window.removeEventListener('keyup', this.keyUp);
+    });
+    // Let Phaser finish create() before an early "Play" click is replayed.
+    this.time.delayedCall(0, () => {
+      const mount = document.querySelector<HTMLElement>('#game');
+      if (mount) mount.dataset.ready = 'true';
+      window.dispatchEvent(new Event('game:ready'));
     });
   }
 
@@ -144,7 +153,19 @@ export class StoryScene extends Phaser.Scene {
         return;
       }
     }
-    if (this.stage === 2 && Math.abs(x - 590) < 90) { this.openChallenge(); return; }
+    if (this.stage === 2) {
+      if (!this.cafeTrayCollected && Math.abs(x - 270) < 105) {
+        this.cafeTrayCollected = true;
+        this.popHeart(270, 365);
+        this.label('ПОДНОС ВЗЯТ ✓', 280, 354, '#ffe0b9', '15px');
+        window.dispatchEvent(new Event('game:cafe-order'));
+        return;
+      }
+      if (this.cafeTrayCollected && Math.abs(x - 750) < 105) {
+        this.openChallenge();
+        return;
+      }
+    }
     if (this.stage === 3 && Math.abs(x - 810) < 95) { this.openChallenge(); return; }
     if (this.stage === 4 && Math.abs(x - 735) < 90) {
       this.paused = true;
@@ -174,12 +195,16 @@ export class StoryScene extends Phaser.Scene {
   };
 
   update(_time: number, delta: number): void {
+    const now = performance.now();
+    const elapsed = this.lastFrameTime ? Math.min(now - this.lastFrameTime, 160) : Math.min(delta, 32);
+    this.lastFrameTime = now;
     if (!this.started || this.paused || this.stage >= story.length) return;
+    const step = elapsed * 0.32;
     let direction = (this.keyRight ? 1 : 0) - (this.keyLeft ? 1 : 0);
     if (!direction) direction = this.moveDirection;
     if (!direction && this.targetX !== null) {
       const distance = this.targetX - this.player.x;
-      if (Math.abs(distance) > delta * 0.25 + 2) direction = Math.sign(distance);
+      if (Math.abs(distance) > step + 2) direction = Math.sign(distance);
       else {
         this.player.x = this.targetX;
         this.targetX = null;
@@ -187,10 +212,11 @@ export class StoryScene extends Phaser.Scene {
       }
     }
     if (direction) {
-      this.player.x = Phaser.Math.Clamp(this.player.x + direction * delta * 0.25, 48, W - 48);
+      this.player.x = Phaser.Math.Clamp(this.player.x + direction * step, 48, W - 48);
       this.player.setFlipX(direction < 0);
       this.player.y = this.playerBaseY + Math.sin(this.time.now * 0.024) * 2;
     } else this.player.y = this.playerBaseY;
+    this.playerShadow?.setPosition(this.player.x, this.floor + 3);
   }
 
   private drawStage(): void {
@@ -202,7 +228,9 @@ export class StoryScene extends Phaser.Scene {
     this.keyRight = false;
     this.flowers.clear();
     this.flowerSprites = [];
+    this.cafeTrayCollected = false;
     this.karinaSprite = undefined;
+    this.playerShadow = undefined;
     const g = this.add.graphics();
     const rich = this.textures.exists('bg-club') && this.textures.exists('nikita-full');
     if (rich) this.drawRichStage(g);
@@ -217,13 +245,15 @@ export class StoryScene extends Phaser.Scene {
         const height = 273;
         this.playerBaseY = this.floor - height / 2;
         const texture = this.stage === 4 ? 'nikita-airport' : 'nikita-full';
-        this.player = this.add.image(this.stage === 2 ? 165 : 130, this.playerBaseY, texture).setDisplaySize(182, height).setDepth(12);
+        this.player = this.add.image(this.stage === 2 ? 520 : 130, this.playerBaseY, texture).setDisplaySize(182, height).setDepth(12);
       } else {
         const outfit = this.stage === 4 ? 'nikita-arrival' : this.stage === 1 ? 'nikita-coat' : 'nikita-pixel';
         const scale = 5.1;
         this.playerBaseY = this.floor - 19 * scale;
-        this.player = this.add.image(this.stage === 2 ? 185 : 130, this.playerBaseY, outfit).setScale(scale).setDepth(12);
+        this.player = this.add.image(this.stage === 2 ? 520 : 130, this.playerBaseY, outfit).setScale(scale).setDepth(12);
       }
+      this.playerShadow = this.add.ellipse(this.player.x, this.floor + 3, 110, 18, 0x0a1023, .46).setDepth(11);
+      this.player.setDepth(12);
     }
     const title = this.stage < story.length ? story[this.stage].title : 'Никита + Карина';
     this.add.text(34, 24, `${String(this.stage + 1).padStart(2, '0')} / 06   ${title.toUpperCase()}`, {
@@ -312,7 +342,7 @@ export class StoryScene extends Phaser.Scene {
   private drawRichStage(g: Phaser.GameObjects.Graphics): void {
     const name = ['club', 'walk', 'cafe', 'morning', 'arrival', 'final'][this.stage];
     this.add.image(W / 2, H / 2, `bg-${name}`).setDisplaySize(W, H).setDepth(-10);
-    this.floor = this.stage === 1 ? 454 : 461;
+    this.floor = this.stage === 1 ? 454 : this.stage === 2 ? 500 : 461;
     if (this.stage === 0) {
       // Preserve the source's 3:2 aspect ratio so the three friends look natural.
       const friendsHeight = 233;
@@ -336,9 +366,10 @@ export class StoryScene extends Phaser.Scene {
       this.label('ТЮЗ', 208, 259, '#ffdee5', '22px');
       this.stars(19);
     } else if (this.stage === 2) {
-      this.karinaSprite = this.personFull(655, this.floor, 'karina-full', 248);
-      this.label('ПЕРВЫЙ ВЕЧЕР', 580, 300, '#ffe0b9', '14px');
-      this.sparkle(g, 567, 322, 0xffdf9d);
+      this.karinaSprite = this.personFull(755, this.floor, 'karina-full', 248);
+      this.label('СНАЧАЛА К СТОЙКЕ ←', 290, 316, '#ffe0b9', '14px');
+      this.label('СТОЛИК ♥', 755, 246, '#ffe0b9', '14px');
+      this.sparkle(g, 755, 270, 0xffdf9d);
     } else if (this.stage === 3) {
       this.label('НАПИСАТЬ КАРИНЕ', 800, 293, '#fff2df', '12px');
       this.sparkle(g, 810, 250, 0xffcfb6);
