@@ -10,6 +10,7 @@ export class StoryScene extends Phaser.Scene {
   private started = false;
   private paused = false;
   private player!: Phaser.GameObjects.Image;
+  private karinaSprite?: Phaser.GameObjects.Image;
   private floor = 405;
   private targetX: number | null = null;
   private autoInteract = false;
@@ -66,15 +67,21 @@ export class StoryScene extends Phaser.Scene {
     this.paused = false;
     this.initialVeil?.destroy();
     this.drawStage();
-    if (this.stage === story.length) window.dispatchEvent(new Event('game:complete'));
+    if (this.stage === story.length) this.showEndingAfterScene();
   };
 
   private continueStory = (): void => {
     this.stage += 1;
     this.paused = false;
     this.drawStage();
-    if (this.stage === story.length) window.dispatchEvent(new Event('game:complete'));
+    if (this.stage === story.length) this.showEndingAfterScene();
   };
+
+  private showEndingAfterScene(): void {
+    this.time.delayedCall(1700, () => {
+      if (this.stage === story.length) window.dispatchEvent(new Event('game:complete'));
+    });
+  }
 
   private setMove = (event: CustomEvent<number>): void => {
     this.moveDirection = event.detail;
@@ -115,11 +122,21 @@ export class StoryScene extends Phaser.Scene {
         if (this.flowers.size === 3) this.helper.setText('Букет готов. Подойди к Карине →');
         return;
       }
-      if (this.flowers.size === 3 && Math.abs(x - 790) < 80) { this.openMemory(); return; }
+      if (this.flowers.size === 3 && Math.abs(x - 790) < 80) {
+        this.karinaSprite?.setTexture('karina-coat');
+        this.openMemory();
+        return;
+      }
     }
     if (this.stage === 2 && Math.abs(x - 590) < 90) { this.openMemory(); return; }
     if (this.stage === 3 && Math.abs(x - 720) < 95) { this.openMemory(); return; }
-    if (this.stage === 4 && Math.abs(x - 735) < 90) { this.openMemory(); return; }
+    if (this.stage === 4 && Math.abs(x - 735) < 90) {
+      this.paused = true;
+      this.tweens.add({ targets: this.player, x: 700, duration: 340, ease: 'Sine.easeInOut' });
+      this.popHeart(705, 280);
+      this.time.delayedCall(520, this.openMemory, [], this);
+      return;
+    }
     this.tweens.add({ targets: this.helper, alpha: 0.2, duration: 90, yoyo: true });
   };
 
@@ -160,6 +177,7 @@ export class StoryScene extends Phaser.Scene {
     this.danceCount = 0;
     this.flowers.clear();
     this.flowerSprites = [];
+    this.karinaSprite = undefined;
     const g = this.add.graphics();
     if (this.stage === 0) this.drawClub(g);
     else if (this.stage === 1) this.drawWalk(g);
@@ -168,7 +186,8 @@ export class StoryScene extends Phaser.Scene {
     else if (this.stage === 4) this.drawArrival(g);
     else this.drawFinal(g);
     if (this.stage < story.length) {
-      this.player = this.add.image(this.stage === 2 ? 185 : 130, this.floor - 26, 'nikita-pixel').setScale(3).setDepth(12);
+      const outfit = this.stage === 4 ? 'nikita-arrival' : this.stage === 1 ? 'nikita-coat' : 'nikita-pixel';
+      this.player = this.add.image(this.stage === 2 ? 185 : 130, this.floor - 26, outfit).setScale(3).setDepth(12);
     }
     const title = this.stage < story.length ? story[this.stage].title : 'Никита + Карина';
     this.add.text(34, 24, `${String(this.stage + 1).padStart(2, '0')} / 06   ${title.toUpperCase()}`, {
@@ -199,20 +218,45 @@ export class StoryScene extends Phaser.Scene {
 
   private makeTextures(): void {
     const g = this.make.graphics({ x: 0, y: 0 });
-    g.fillStyle(0x332a34).fillRect(5, 0, 10, 3).fillRect(3, 3, 14, 5);
-    g.fillStyle(0xf0bf9f).fillRect(4, 8, 12, 10);
-    g.fillStyle(0x382b38).fillRect(5, 11, 2, 2).fillRect(13, 11, 2, 2);
-    g.fillStyle(0xc66d82).fillRect(4, 18, 12, 12).fillRect(2, 21, 2, 9).fillRect(16, 21, 2, 9);
-    g.fillStyle(0x372e49).fillRect(5, 30, 4, 6).fillRect(11, 30, 4, 6);
-    g.fillStyle(0x1c192a).fillRect(4, 36, 5, 2).fillRect(11, 36, 5, 2);
-    g.generateTexture('nikita-pixel', 20, 38);
-    g.clear();
-    g.fillStyle(0xc29b6a).fillRect(4, 0, 12, 4).fillRect(3, 4, 14, 15);
-    g.fillStyle(0xf4c6a6).fillRect(5, 8, 10, 10);
-    g.fillStyle(0x422a35).fillRect(6, 11, 2, 2).fillRect(12, 11, 2, 2);
-    g.fillStyle(0xcd6b79).fillRect(4, 18, 12, 15).fillRect(2, 20, 2, 10).fillRect(16, 20, 2, 10);
-    g.fillStyle(0x352d45).fillRect(5, 33, 4, 4).fillRect(11, 33, 4, 4);
-    g.generateTexture('karina-pixel', 20, 38);
+    const nikita = (key: string, coat = false, suit = false, beanie = false) => {
+      g.clear();
+      g.fillStyle(0x2c242d).fillRect(5, 0, 10, 3).fillRect(3, 3, 14, 5);
+      if (beanie) g.fillStyle(0x1c1c26).fillRect(3, 0, 14, 7);
+      g.fillStyle(0xe9b99b).fillRect(4, 8, 12, 10);
+      g.fillStyle(0x382b38).fillRect(5, 11, 2, 2).fillRect(13, 11, 2, 2);
+      g.fillStyle(0xc07875).fillRect(8, 15, 4, 1);
+      g.fillStyle(coat ? 0xb5815f : suit ? 0x34324a : 0xf1e9db).fillRect(4, 18, 12, 12).fillRect(2, 21, 2, 9).fillRect(16, 21, 2, 9);
+      if (coat) g.fillStyle(0x3e3441).fillRect(8, 18, 4, 11);
+      else if (suit) g.fillStyle(0xf8e5d4).fillRect(8, 18, 4, 10);
+      else {
+        g.fillStyle(0x9d766e).fillRect(5, 20, 2, 2).fillRect(12, 21, 2, 2).fillRect(8, 25, 2, 2).fillRect(14, 27, 2, 2);
+        g.fillStyle(0x6d645b).fillRect(7, 23, 1, 2).fillRect(11, 27, 1, 2);
+      }
+      g.fillStyle(0x342d49).fillRect(5, 30, 4, 6).fillRect(11, 30, 4, 6);
+      g.fillStyle(0x1c192a).fillRect(4, 36, 5, 2).fillRect(11, 36, 5, 2);
+      g.generateTexture(key, 20, 38);
+    };
+    const karina = (key: string, coat = false, bride = false, red = false) => {
+      g.clear();
+      g.fillStyle(0xc8a67d).fillRect(4, 0, 12, 5).fillRect(3, 5, 14, 15).fillRect(3, 20, 2, 8).fillRect(15, 20, 2, 8);
+      g.fillStyle(0xf0c5a6).fillRect(5, 8, 10, 10);
+      g.fillStyle(0x3e2934).fillRect(6, 11, 2, 2).fillRect(12, 11, 2, 2);
+      g.fillStyle(0xd68789).fillRect(8, 16, 4, 1);
+      g.fillStyle(coat ? 0xcbb8a3 : red ? 0xb82d47 : 0xf6f0e8).fillRect(4, 18, 12, bride ? 17 : 13).fillRect(2, 21, 2, 9).fillRect(16, 21, 2, 9);
+      if (coat) g.fillStyle(0xa1887f).fillRect(9, 20, 2, 12);
+      if (red) g.fillStyle(0xffdfd7).fillRect(6, 21, 1, 1).fillRect(12, 23, 1, 1).fillRect(8, 28, 1, 1);
+      if (bride) g.fillStyle(0xffffff).fillRect(2, 29, 16, 8);
+      else g.fillStyle(red ? 0xb82d47 : 0x3c334d).fillRect(5, 31, 4, 6).fillRect(11, 31, 4, 6);
+      g.generateTexture(key, 20, 38);
+    };
+    nikita('nikita-pixel');
+    nikita('nikita-coat', true);
+    nikita('nikita-arrival', true, false, true);
+    nikita('nikita-suit', false, true);
+    karina('karina-pixel');
+    karina('karina-coat', true);
+    karina('karina-bride', false, true);
+    karina('karina-red', false, false, true);
     g.clear();
     g.fillStyle(0x557464).fillRect(7, 8, 2, 12);
     g.fillStyle(0xe6869b).fillRect(4, 3, 5, 7).fillRect(9, 3, 5, 7).fillRect(7, 1, 4, 9);
@@ -221,8 +265,8 @@ export class StoryScene extends Phaser.Scene {
     g.destroy();
   }
 
-  private person(x: number, feet: number, type: 'karina' | 'nikita', scale = 3): Phaser.GameObjects.Image {
-    return this.add.image(x, feet - 19 * scale, type === 'karina' ? 'karina-pixel' : 'nikita-pixel').setScale(scale).setDepth(11);
+  private person(x: number, feet: number, texture: string, scale = 3): Phaser.GameObjects.Image {
+    return this.add.image(x, feet - 19 * scale, texture).setScale(scale).setDepth(11);
   }
 
   private popHeart(x: number, y: number): void {
@@ -278,7 +322,7 @@ export class StoryScene extends Phaser.Scene {
     g.fillStyle(0xffa0c5).fillRect(345, 143, 270, 6);
     this.label('D O S K I', 480, 175, '#ffb8ce', '30px');
     [638, 686, 739, 790].forEach((x, i) => {
-      const friend = this.person(x, 406, 'karina', 2.4);
+      const friend = this.person(x, 406, 'karina-pixel', 2.4);
       if (i !== 1) friend.setTint([0xdcb8db, 0xffffff, 0xf2c2b3, 0xc9c3e6][i]);
     });
     this.label('КАРИНА', 687, 279, '#ffd5d1', '14px');
@@ -299,7 +343,7 @@ export class StoryScene extends Phaser.Scene {
       this.flowerSprites.push(this.add.image(FLOWERS[i], 389, 'flower-pixel').setScale(2.3).setDepth(11));
       g.fillStyle(0x506953).fillRect(FLOWERS[i] - 19, 393, 38, 12);
     }
-    this.person(790, 405, 'karina');
+    this.karinaSprite = this.person(790, 405, 'karina-pixel');
     this.label('КАРИНА', 790, 301, '#ffd9d4', '13px');
     this.stars();
   }
@@ -318,7 +362,7 @@ export class StoryScene extends Phaser.Scene {
     g.fillStyle(0x463044).fillRect(345, 320, 452, 28).fillRect(375, 348, 22, 60).fillRect(751, 348, 22, 60);
     g.fillStyle(0xf9d5aa).fillRect(475, 311, 44, 9).fillRect(634, 310, 40, 10);
     this.ground(g, 407, 0x493249);
-    this.person(605, 400, 'karina', 2.5);
+    this.person(605, 400, 'karina-pixel', 2.5);
     this.label('ПОГОВОРИТЬ  ✦', 590, 264, '#fff0d4', '15px');
   }
 
@@ -331,6 +375,7 @@ export class StoryScene extends Phaser.Scene {
       g.fillStyle(i % 2 ? 0x6f9a72 : 0x88a873).fillCircle(x + 42, 260, 57);
     }
     this.ground(g, 407, 0x93847d);
+    this.person(876, 407, 'karina-red', 2.4);
     g.fillStyle(0x2e2638).fillRect(650, 159, 145, 216);
     g.fillStyle(0x47455f).fillRect(660, 170, 125, 193);
     g.fillStyle(0xf0dbd0).fillRect(669, 210, 105, 54);
@@ -341,17 +386,24 @@ export class StoryScene extends Phaser.Scene {
   }
 
   private drawArrival(g: Phaser.GameObjects.Graphics): void {
-    [0x5c739c, 0x748db0, 0x99b4c5, 0xc6cdd0, 0xd2c8c8].forEach((c, i) => g.fillStyle(c).fillRect(0, i * 83, W, 85));
-    g.fillStyle(0x35435b).fillRect(0, 206, W, 198);
-    for (let x = 0; x < W; x += 148) {
-      g.fillStyle(0x9bb4c9).fillRect(x + 8, 218, 129, 158);
-      g.fillStyle(0x556b86).fillRect(x + 69, 218, 5, 158);
+    g.fillStyle(0xd4d8d7).fillRect(0, 0, W, H);
+    g.fillStyle(0xeff0eb).fillRect(0, 76, W, 328);
+    g.fillStyle(0xa9afb0).fillRect(0, 124, W, 9).fillRect(0, 307, W, 8);
+    for (let x = 18; x < 535; x += 86) {
+      g.fillStyle(0xc4c8c8).fillRect(x, 150, 75, 202);
+      g.fillStyle(0xe9eae7).fillRect(x + 5, 155, 65, 190);
+      g.fillStyle(0xaeb4b4).fillRect(x + 10, 180, 55, 2).fillRect(x + 10, 249, 55, 2);
+      g.fillStyle(0x878f91).fillRect(x + 57, 219, 4, 9);
     }
-    g.fillStyle(0xe7e0d3).fillRect(0, 188, W, 22);
-    g.fillStyle(0x3e4d65).fillRect(0, 355, W, 50);
-    this.label('ОМСК', 480, 232, '#fff3d9', '35px');
-    this.ground(g, 405, 0x5e5b6d);
-    this.person(735, 405, 'karina');
+    g.fillStyle(0x506076).fillRect(561, 142, 370, 240);
+    g.fillStyle(0x99b4c5).fillRect(569, 151, 354, 219);
+    g.fillStyle(0x566c82).fillRect(741, 151, 8, 219);
+    g.fillStyle(0x3e4b64).fillRect(632, 69, 248, 56);
+    this.label('ОМСК  ♥', 756, 96, '#fff3d9', '24px');
+    this.ground(g, 405, 0xaaa7a4);
+    for (let x = 0; x < W; x += 90) g.fillStyle(0xd4d1ca).fillRect(x, 452, 84, 2);
+    g.fillStyle(0xd4d1ca).fillRect(0, 484, W, 2);
+    this.person(735, 405, 'karina-coat');
     g.fillStyle(0x4c3e58).fillRect(784, 359, 27, 47);
     g.fillStyle(0xbba4a3).fillRect(790, 351, 15, 8);
     this.label('КАРИНА', 735, 299, '#fff0e4', '14px');
@@ -368,8 +420,8 @@ export class StoryScene extends Phaser.Scene {
       const x = 340 + i * 21;
       g.fillStyle(i % 2 ? 0xffd2b2 : 0xe993a5).fillRect(x, 159 + i % 3 * 4, 11, 11);
     }
-    this.person(445, 405, 'nikita', 3.2);
-    this.person(520, 405, 'karina', 3.2);
+    this.person(445, 405, 'nikita-suit', 3.2);
+    this.person(520, 405, 'karina-bride', 3.2);
     this.label('НИКИТА  ♥  КАРИНА', 480, 98, '#fff6e2', '31px');
     for (let i = 0; i < 64; i++) {
       const x = (i * 103 + 19) % W, y = (i * 77 + 13) % 370;
