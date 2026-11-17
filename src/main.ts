@@ -1,0 +1,146 @@
+import { chapters, story } from './content/story';
+import { mountGame } from './game';
+import { chipMusic } from './audio';
+import './style.css';
+
+const app = document.querySelector<HTMLDivElement>('#app');
+if (!app) throw new Error('App mount not found');
+
+app.innerHTML = `
+  <div class="site-shell">
+    <header class="site-header">
+      <a href="#top" class="brand" aria-label="На главную"><span class="brand-heart" aria-hidden="true">♥</span><span>НИКИТА<span class="brand-dot">.</span>КАРИНА</span></a>
+      <div class="header-right"><span class="edition">ИХ ИСТОРИЯ <span>·</span> 16 БИТ</span><button class="sound-button" id="sound-button" type="button" aria-label="Выключить музыку" aria-pressed="true">♪ ЗВУК ВКЛ</button><a class="header-link" href="#chapters">ГЛАВЫ <span aria-hidden="true">↗</span></a></div>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="eyebrow-line"></span> ОСНОВАНО НА НАСТОЯЩЕЙ ИСТОРИИ</div>
+          <div class="chapter-index">01 <span>/</span> 06</div>
+          <h1 id="hero-title">Один танец.<br><em>Целая жизнь.</em></h1>
+          <p class="hero-lead">Никита и Карина встретились случайно на танцполе в Омске. Пройдите их историю — от первого вечера до свадьбы.</p>
+          <div class="hero-actions"><button id="start-button" class="pixel-button" type="button"><span class="button-arrow">▶</span> ИГРАТЬ В ИСТОРИЮ</button><span class="play-hint">6 коротких глав · 3–5 минут</span></div>
+          <div class="hero-meta"><span>✦</span> ОСНОВАНО НА ВОСПОМИНАНИЯХ НИКИТЫ <span class="meta-divider">/</span> ОМСК</div>
+        </div>
+        <div class="game-column" id="game-area">
+          <div class="game-frame"><div class="frame-top"><span class="live-dot"></span> СЕЙЧАС В ИГРЕ <span class="frame-title" id="frame-title">ГЛАВА 01: ТАНЦПОЛ</span><span class="frame-symbols">◇ ✳ ×</span></div><div id="game" class="game-canvas" role="application" aria-label="Пиксельная история Никиты и Карины"></div><div class="frame-bottom"><span id="progress-label">✦ ГЛАВА 01 / 06</span><span>НИКИТА + КАРИНА</span><span>16 BIT LOVE STORY</span></div></div>
+          <div class="mobile-controls" aria-label="Управление игрой"><button type="button" class="control-button" data-move="-1" aria-label="Идти влево">◀</button><button type="button" class="control-button" data-move="1" aria-label="Идти вправо">▶</button><button type="button" class="control-button action-button" id="interact-button">✦ ДЕЙСТВИЕ</button></div><p class="mobile-hint" id="mobile-hint">${story[0].hint}</p>
+          <div class="game-caption"><span class="caption-star">✳</span> СТРЕЛКИ ИЛИ A/D — ИДТИ · E ИЛИ ПРОБЕЛ — ДЕЙСТВИЕ · НА ТЕЛЕФОНЕ — КНОПКИ</div>
+        </div>
+      </section>
+
+      <section class="story-strip" aria-label="Этапы истории"><span>ДОСКИ</span><span class="strip-symbol">✦</span><span>ЦВЕТЫ У ТЮЗА</span><span class="strip-symbol">✦</span><span>ПЕРВОЕ СООБЩЕНИЕ</span><span class="strip-symbol">✦</span><span>ВОЗВРАЩЕНИЕ В ОМСК</span><span class="strip-symbol">✦</span><span>НАВСЕГДА</span></section>
+
+      <section class="chapters" id="chapters" aria-labelledby="chapters-title">
+        <div class="chapters-heading"><div><p class="section-kicker">ШЕСТЬ МОМЕНТОВ ОДНОЙ ИСТОРИИ</p><h2 id="chapters-title">От танца<br><em>до навсегда.</em></h2></div><p class="section-note">Выберите главу или пройдите всю историю по порядку.<br>Каждая сцена открывает настоящий кадр из жизни Никиты и Карины.</p></div>
+        <div class="chapter-grid">${chapters.map((chapter, index) => `<button class="chapter-card ${index === 0 ? 'current' : ''}" type="button" data-chapter="${index}"><span class="card-top"><span>ГЛАВА ${chapter.number}</span><span>✦</span></span><span class="card-number">${chapter.number}</span><span class="card-bottom"><strong>${chapter.title}</strong><small>${chapter.subtitle}</small></span></button>`).join('')}</div>
+      </section>
+
+      <section class="archive" id="archive" aria-labelledby="archive-title">
+        <div class="archive-heading"><p class="section-kicker">НЕ ТОЛЬКО ПИКСЕЛИ</p><h2 id="archive-title">Настоящие <em>воспоминания.</em></h2><p>Кадры из первого дня и встречи после возвращения в Омск.</p></div>
+        <div class="archive-grid"><figure><img src="/assets/first-day.jpg" alt="Никита и Карина в день знакомства" loading="lazy"><figcaption>01 / ПЕРВЫЙ ДЕНЬ</figcaption></figure><figure><img src="/assets/first-walk.jpeg" alt="Никита и Карина во время первой прогулки" loading="lazy"><figcaption>02 / ПЕРВАЯ ПРОГУЛКА</figcaption></figure><figure><video src="/assets/reunion.mp4" controls playsinline preload="metadata" aria-label="Встреча после возвращения в Омск"></video><figcaption>03 / СНОВА В ОМСКЕ</figcaption></figure></div>
+      </section>
+    </main>
+
+    <footer class="footer"><span>♥ НИКИТА + КАРИНА</span><span>НАСТОЯЩАЯ ИСТОРИЯ. ПИКСЕЛЬНОЕ ПРИКЛЮЧЕНИЕ.</span><a href="#top">НАВЕРХ ↑</a></footer>
+  </div>
+
+  <div class="memory-modal" id="memory-modal" hidden><div class="completion-backdrop"></div><div class="memory-card" role="dialog" aria-modal="true" aria-labelledby="memory-title"><div class="memory-visual" id="memory-visual"></div><div class="memory-copy"><p class="section-kicker" id="memory-kicker">ВОСПОМИНАНИЕ 01 / 05</p><h2 id="memory-title"></h2><p id="memory-text"></p><button class="pixel-button" id="memory-next" type="button">ПРОДОЛЖИТЬ →</button></div></div></div>
+  <div class="completion-modal" id="completion-modal" hidden><div class="completion-backdrop"></div><div class="completion-card" role="dialog" aria-modal="true" aria-labelledby="completion-title"><div class="completion-spark">♥</div><p class="section-kicker">ФИНАЛ ИСТОРИИ</p><h2 id="completion-title">Никита + Карина</h2><p>Один случайный танец в Омске привёл их друг к другу. Со временем они стали семьёй и сыграли свадьбу. Самое прекрасное продолжение происходит уже в жизни.</p><div class="ending-photo"><img src="/assets/first-day.jpg" alt="Никита и Карина в день знакомства"></div><button class="pixel-button" id="replay-button" type="button">↻ ПРОЙТИ СНАЧАЛА</button><button class="text-button" id="close-modal" type="button">ПОСМОТРЕТЬ ВОСПОМИНАНИЯ</button></div></div>
+`;
+
+const gameMount = document.querySelector<HTMLElement>('#game');
+if (!gameMount) throw new Error('Game mount not found');
+mountGame(gameMount);
+
+const startButton = document.querySelector<HTMLButtonElement>('#start-button');
+const gameArea = document.querySelector<HTMLElement>('#game-area');
+const memoryModal = document.querySelector<HTMLElement>('#memory-modal');
+const completionModal = document.querySelector<HTMLElement>('#completion-modal');
+const progressLabel = document.querySelector<HTMLElement>('#progress-label');
+const frameTitle = document.querySelector<HTMLElement>('#frame-title');
+const memoryVisual = document.querySelector<HTMLElement>('#memory-visual');
+let started = false;
+
+function scrollToGame(): void { gameArea?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+function startGame(): void {
+  chipMusic.start();
+  if (started) window.dispatchEvent(new CustomEvent('game:jump', { detail: 0 }));
+  else { started = true; window.dispatchEvent(new Event('game:start')); }
+  if (startButton) startButton.innerHTML = '<span class="button-arrow">↻</span> ИГРАТЬ СНАЧАЛА';
+  if (completionModal) completionModal.hidden = true;
+  scrollToGame();
+}
+startButton?.addEventListener('click', startGame);
+
+document.querySelectorAll<HTMLButtonElement>('[data-chapter]').forEach((button) => {
+  button.addEventListener('click', () => {
+    chipMusic.start();
+    started = true;
+    if (startButton) startButton.innerHTML = '<span class="button-arrow">↻</span> ИГРАТЬ СНАЧАЛА';
+    if (memoryModal) memoryModal.hidden = true;
+    if (completionModal) completionModal.hidden = true;
+    window.dispatchEvent(new CustomEvent('game:jump', { detail: Number(button.dataset.chapter) }));
+    scrollToGame();
+  });
+});
+
+window.addEventListener('game:stage', ((event: CustomEvent<number>) => {
+  const index = event.detail;
+  if (progressLabel) progressLabel.textContent = `✦ ГЛАВА ${String(index + 1).padStart(2, '0')} / 06`;
+  if (frameTitle) frameTitle.textContent = `ГЛАВА ${String(index + 1).padStart(2, '0')}: ${chapters[index].title.toUpperCase()}`;
+  chipMusic.setStage(index);
+  const mobileHint = document.querySelector<HTMLElement>('#mobile-hint');
+  if (mobileHint) mobileHint.textContent = index < story.length ? story[index].hint : 'История Никиты и Карины продолжается ♥';
+  document.querySelectorAll<HTMLElement>('[data-chapter]').forEach((card) => card.classList.toggle('current', Number(card.dataset.chapter) === index));
+}) as EventListener);
+
+window.addEventListener('game:memory', ((event: CustomEvent<number>) => {
+  const index = event.detail;
+  const beat = story[index];
+  if (!beat || !memoryModal || !memoryVisual) return;
+  document.querySelector('#memory-kicker')!.textContent = `ВОСПОМИНАНИЕ ${String(index + 1).padStart(2, '0')} / 05`;
+  document.querySelector('#memory-title')!.textContent = beat.cardTitle;
+  document.querySelector('#memory-text')!.textContent = beat.cardText;
+  document.querySelector('#memory-next')!.textContent = `${beat.nextLabel} →`;
+  memoryVisual.replaceChildren();
+  if (beat.media) {
+    const media = document.createElement(beat.media.type === 'video' ? 'video' : 'img');
+    media.setAttribute('src', beat.media.src);
+    media.setAttribute(beat.media.type === 'video' ? 'aria-label' : 'alt', beat.media.alt);
+    if (media instanceof HTMLVideoElement) { media.controls = true; media.playsInline = true; media.muted = true; media.poster = beat.media.poster ?? ''; }
+    memoryVisual.append(media);
+  }
+  memoryModal.hidden = false;
+}) as EventListener);
+
+function closeMemoryAndContinue(): void {
+  if (!memoryModal || memoryModal.hidden) return;
+  memoryModal.hidden = true;
+  memoryVisual?.replaceChildren();
+  window.dispatchEvent(new Event('game:continue'));
+}
+document.querySelector('#memory-next')?.addEventListener('click', closeMemoryAndContinue);
+window.addEventListener('game:complete', () => { if (completionModal) completionModal.hidden = false; });
+document.querySelector('#replay-button')?.addEventListener('click', startGame);
+document.querySelector('#close-modal')?.addEventListener('click', () => {
+  if (completionModal) completionModal.hidden = true;
+  document.querySelector('#archive')?.scrollIntoView({ behavior: 'smooth' });
+});
+document.querySelector('#interact-button')?.addEventListener('click', () => window.dispatchEvent(new Event('game:interact')));
+document.querySelector<HTMLButtonElement>('#sound-button')?.addEventListener('click', (event) => {
+  const enabled = chipMusic.toggle();
+  const button = event.currentTarget as HTMLButtonElement;
+  button.textContent = enabled ? '♪ ЗВУК ВКЛ' : '♪ ЗВУК ВЫКЛ';
+  button.setAttribute('aria-label', enabled ? 'Выключить музыку' : 'Включить музыку');
+  button.setAttribute('aria-pressed', String(enabled));
+});
+document.querySelectorAll<HTMLButtonElement>('[data-move]').forEach((button) => {
+  const direction = Number(button.dataset.move);
+  const stop = () => window.dispatchEvent(new CustomEvent('game:move', { detail: 0 }));
+  button.addEventListener('pointerdown', (event) => { event.preventDefault(); button.setPointerCapture(event.pointerId); window.dispatchEvent(new CustomEvent('game:move', { detail: direction })); });
+  button.addEventListener('pointerup', stop);
+  button.addEventListener('pointercancel', stop);
+  button.addEventListener('lostpointercapture', stop);
+});
