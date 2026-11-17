@@ -23,7 +23,7 @@ export const story: StoryBeat[] = [
     cardTitle: 'Тот самый танец',
     cardText: 'Никита пришёл в DOSKI с друзьями. Пока он танцевал с закрытыми глазами, друзья ушли с танцпола. Так он оказался рядом с Кариной и её тремя подругами. Карина позвала его танцевать с ними.',
     nextLabel: 'ВЫЙТИ НА УЛИЦУ',
-    media: { type: 'video', src: '/assets/first-day.mp4', alt: 'Видео из первого дня знакомства', poster: '/assets/first-day-poster.png' },
+    media: { type: 'video', src: 'assets/first-day.mp4', alt: 'Видео из первого дня знакомства', poster: 'assets/first-day-poster.png' },
   },
   {
     id: 'walk', title: 'Ночная прогулка',
@@ -31,7 +31,7 @@ export const story: StoryBeat[] = [
     cardTitle: 'Цветы и пальто',
     cardText: 'После клуба они вышли на улицу, а по дороге к Кифазу на Транспортной Никита подарил Карине цветы, сорванные у ТЮЗа, и отдал ей своё пальто.',
     nextLabel: 'ЗАЙТИ ПОЕСТЬ',
-    media: { type: 'video', src: '/assets/flowers.mp4', alt: 'Никита собирает цветы', poster: '/assets/flowers-poster.png' },
+    media: { type: 'video', src: 'assets/flowers.mp4', alt: 'Никита собирает цветы', poster: 'assets/flowers-poster.png' },
   },
   {
     id: 'cafe', title: 'Кифаз / Транспортная',
@@ -39,7 +39,7 @@ export const story: StoryBeat[] = [
     cardTitle: 'Первый разговор',
     cardText: 'Они посидели, поели и поговорили. Потом Карина уехала в общежитие, а Никита — домой. Их первый вечер закончился, но история уже началась.',
     nextLabel: 'НАСТУПИЛО УТРО',
-    media: { type: 'image', src: '/assets/first-day.jpg', alt: 'Первое совместное фото Никиты и Карины' },
+    media: { type: 'image', src: 'assets/first-day.jpg', alt: 'Первое совместное фото Никиты и Карины' },
   },
   {
     id: 'morning', title: 'Сообщение наутро',
@@ -47,7 +47,7 @@ export const story: StoryBeat[] = [
     cardTitle: '«Проснулись?»',
     cardText: 'Утром Никита написал Карине и её подругам, спросил, как они и проснулись ли. Они уже собирались гулять в парке. Впереди было ещё несколько встреч.',
     nextLabel: 'ПРОДОЛЖИТЬ ИСТОРИЮ',
-    media: { type: 'image', src: '/assets/red-outfit.jpeg', alt: 'Карина на прогулке в первый день' },
+    media: { type: 'image', src: 'assets/red-outfit.jpeg', alt: 'Карина на прогулке в первый день' },
   },
   {
     id: 'return', title: 'Снова в Омске',
@@ -55,7 +55,7 @@ export const story: StoryBeat[] = [
     cardTitle: 'Остаться вместе',
     cardText: 'После поездки в Рубцовск Карина собиралась переехать в Краснодар. Никита пригласил её и подругу в Омск. После приезда отношения стали ближе, и он предложил Карине остаться. Она вернулась в Омск.',
     nextLabel: 'К ФИНАЛУ',
-    media: { type: 'video', src: '/assets/reunion.mp4', alt: 'Встреча Никиты и Карины после прилёта', poster: '/assets/reunion-poster.png' },
+    media: { type: 'video', src: 'assets/reunion.mp4', alt: 'Встреча Никиты и Карины после прилёта', poster: 'assets/reunion-poster.png' },
   },
 ];
 
