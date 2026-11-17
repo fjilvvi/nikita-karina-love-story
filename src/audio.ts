@@ -32,9 +32,9 @@ class ProceduralScore {
   get currentVolume(): number { return this.volume; }
   get currentTrack(): Track { return soundtrack[this.stage]; }
   get beatDurationMs(): number { return 60000 / this.currentTrack.bpm; }
-  getBeatPhase(): number {
+  getBeatPhase(beats = 1): number {
     const elapsed = this.ctx && this.started && this.enabled ? (this.ctx.currentTime - this.beatZero) * 1000 : performance.now();
-    return ((elapsed / this.beatDurationMs) % 1 + 1) % 1;
+    return ((elapsed / (this.beatDurationMs * beats)) % 1 + 1) % 1;
   }
   start(): void {
     this.started = true;

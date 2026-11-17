@@ -59,19 +59,20 @@ export class MiniGames {
   private rhythm(): void {
     let hits = 0;
     const body = this.body();
-    body.innerHTML = `<div class="challenge-layout"><div class="challenge-copy"><p class="challenge-kicker">УРОВЕНЬ 01 · DOSKI</p><h2>Попади<br><em>в этот ритм.</em></h2><p>Никита танцует с закрытыми глазами. Жми в тот момент, когда светящийся квадрат проходит через сердце. Четыре удара — и Карина заметит его.</p><div class="beat-track"><span class="beat-target">♥</span><span class="beat-cursor" id="beat-cursor"></span></div><div class="challenge-score" id="beat-score">РИТМ 0 / 4</div><div class="challenge-feedback" aria-live="polite">Жми пробел, E или кнопку</div><button class="challenge-primary" data-action="hit" type="button">✦ ПОПАСТЬ В ТАКТ</button></div><div class="challenge-video"><video src="assets/first-day.mp4" poster="assets/first-day-poster.png" autoplay loop muted playsinline controls aria-label="Видео первого вечера в DOSKI"></video><span>НАСТОЯЩИЙ КАДР · ПЕРВЫЙ ВЕЧЕР</span></div></div>`;
+    body.innerHTML = `<div class="challenge-layout"><div class="challenge-copy"><p class="challenge-kicker">УРОВЕНЬ 01 · DOSKI</p><h2>Попади<br><em>в этот ритм.</em></h2><p>Никита танцует с закрытыми глазами. Жми в тот момент, когда светящийся квадрат проходит через сердце. Не спеши: маркер проходит через сердце раз в два музыкальных удара. Четыре попадания — и Карина заметит его.</p><div class="beat-track"><span class="beat-target">♥</span><span class="beat-cursor" id="beat-cursor"></span></div><div class="challenge-score" id="beat-score">РИТМ 0 / 4</div><div class="challenge-feedback" aria-live="polite">Жми пробел, E или кнопку</div><button class="challenge-primary" data-action="hit" type="button">✦ ПОПАСТЬ В ТАКТ</button></div><div class="challenge-video"><video src="assets/first-day.mp4" poster="assets/first-day-poster.png" autoplay loop muted playsinline controls aria-label="Видео первого вечера в DOSKI"></video><span>НАСТОЯЩИЙ КАДР · ПЕРВЫЙ ВЕЧЕР</span></div></div>`;
     const cursor = this.root.querySelector<HTMLElement>('#beat-cursor')!;
     let position = 0;
     const animate = () => {
       if (!this.active || !cursor.isConnected) return;
-      position = (Math.sin(chipMusic.getBeatPhase() * Math.PI * 2) + 1) / 2;
+      // One full sweep takes four musical beats; the cursor crosses the heart every two beats.
+      position = (Math.sin(chipMusic.getBeatPhase(4) * Math.PI * 2) + 1) / 2;
       cursor.style.left = `${position * 100}%`;
       this.raf = requestAnimationFrame(animate);
     };
     this.raf = requestAnimationFrame(animate);
     body.querySelector('[data-action="hit"]')?.addEventListener('click', () => {
       if (hits >= 4) return;
-      if (Math.abs(position - .5) < .16) {
+      if (Math.abs(position - .5) < .2) {
         chipMusic.cue('hit');
         hits++;
         this.feedback(hits === 4 ? 'Идеально! Теперь повтори движение.' : 'В ТОЧКУ! ♥');
@@ -103,11 +104,11 @@ export class MiniGames {
     body.innerHTML = `<div class="challenge-centered"><p class="challenge-kicker">УРОВЕНЬ 02 · У ТЮЗА</p><h2>Тёплый <em>жест.</em></h2><p>Букет уже у Карины. Поймай момент, чтобы накинуть пальто ей на плечи.</p><div class="coat-scene"><img class="coat-character" src="assets/nikita-full.webp" alt=""><img class="coat-character karina" src="assets/karina-full.webp" alt=""><span class="coat-moving" id="coat-moving">🧥</span><span class="coat-target">♥</span></div><div class="challenge-feedback" aria-live="polite">Поймай пальто рядом с сердцем</div><button class="challenge-primary" data-action="hit" type="button">✦ ОТДАТЬ ПАЛЬТО</button></div>`;
     const moving = body.querySelector<HTMLElement>('#coat-moving')!;
     const start = performance.now();
-    const animate = (now: number) => { if (!this.active || !moving.isConnected) return; position = (Math.sin((now - start) * Math.PI / 1000 - Math.PI / 2) + 1) / 2; moving.style.left = `${position * 80 + 10}%`; this.raf = requestAnimationFrame(animate); };
+    const animate = (now: number) => { if (!this.active || !moving.isConnected) return; position = (Math.sin((now - start) * Math.PI / 1450 - Math.PI / 2) + 1) / 2; moving.style.left = `${position * 80 + 10}%`; this.raf = requestAnimationFrame(animate); };
     this.raf = requestAnimationFrame(animate);
     body.querySelector('[data-action="hit"]')?.addEventListener('click', () => {
       if (won) return;
-      if (position > .72) { won = true; chipMusic.cue('heart'); this.feedback('Согрелась ♥'); this.later(650, () => this.finish()); }
+      if (position > .62) { won = true; chipMusic.cue('heart'); this.feedback('Согрелась ♥'); this.later(650, () => this.finish()); }
       else { chipMusic.cue('miss'); this.feedback('Чуть ближе к Карине', false); }
     });
   }

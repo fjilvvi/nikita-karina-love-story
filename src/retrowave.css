@@ -1,4 +1,5 @@
 /* The site and the game share one nighttime palette, rhythm and frame language. */
+:root{--neon:#ff8eaf;--neon-2:#80e7ef;--neon-rgb:255,142,175}
 .site-shell{
   --neon:#ff8eaf;--neon-2:#80e7ef;--neon-rgb:255,142,175;
   position:relative;
@@ -148,6 +149,21 @@
 .archive figure{border-color:#697392;background:#1d233b;box-shadow:4px 4px 0 #0a0d1c}
 .archive figcaption{color:var(--neon-2)}
 .memory-card,.completion-card{border-color:#b7b9e1;background:#1c2038;box-shadow:9px 9px 0 #35375d,0 0 65px rgba(var(--neon-rgb),.25)}
+.memory-actions{display:flex;flex-direction:column;align-items:flex-start;gap:12px;width:100%}
+.memory-actions>span{color:#9de7e7;font:9px 'DM Mono',monospace;letter-spacing:.15em}
+.memory-copy .memory-actions .pixel-button{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:54px;max-width:100%;
+  padding:15px 20px;
+  border:2px solid #ffcedc;
+  background:#ff9fba;
+  color:#171328;
+  font-weight:700;
+  text-align:center;
+  line-height:1.5;
+  box-shadow:5px 5px 0 #554262,0 0 22px #ff9fba66;
+}
+.memory-copy .memory-actions .pixel-button:hover{background:#ffc3d1;box-shadow:7px 7px 0 #554262,0 0 30px #ff9fba99}
 .completion-card{background:radial-gradient(circle at 50% 0,#4d3a62,#1c2038 70%)}
 .footer{border-color:#536078;color:#a4a8bf}
 .footer a{color:var(--neon-2)}
@@ -168,6 +184,16 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
   .chapter-card{min-height:185px}
   .card-track{font-size:6px;line-height:1.4}
   .hud-panel,.hud-energy,.hud-prompt{box-shadow:2px 2px 0 #15182c}
+  .memory-actions>span{font-size:8px}
+  .memory-copy .memory-actions .pixel-button{width:100%;min-height:49px}
+}
+@media(max-height:720px) and (min-width:651px){
+  .memory-visual{min-height:0}
+  .memory-copy{padding:24px 32px}
+  .memory-portraits{margin-bottom:12px}
+  .memory-portraits img{width:54px;height:54px}
+  .memory-copy h2{font-size:36px;margin-bottom:10px}
+  .memory-copy>p:not(.section-kicker){font-size:12px;line-height:1.55;margin-bottom:17px}
 }
 @media(max-width:390px){.station-volume{min-width:55px}.station-volume input{width:55px}.station-copy strong{font-size:11px}}
 @media(prefers-reduced-motion:reduce){

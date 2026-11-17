@@ -56,8 +56,8 @@ app.innerHTML = `
   </div>
 
   <div class="challenge-modal" id="challenge-modal" hidden></div>
-  <div class="memory-modal" id="memory-modal" hidden><div class="completion-backdrop"></div><div class="memory-card" role="dialog" aria-modal="true" aria-labelledby="memory-title"><div class="memory-visual" id="memory-visual"></div><div class="memory-copy"><div class="memory-portraits"><img src="assets/nikita-pixel-portrait.png" alt="Пиксельный портрет Никиты"><span>♥</span><img src="assets/karina-pixel-portrait.png" alt="Пиксельный портрет Карины"></div><p class="section-kicker" id="memory-kicker">ВОСПОМИНАНИЕ 01 / 05</p><h2 id="memory-title"></h2><p id="memory-text"></p><button class="pixel-button" id="memory-next" type="button">ПРОДОЛЖИТЬ →</button></div></div></div>
-  <div class="completion-modal" id="completion-modal" hidden><div class="completion-backdrop"></div><div class="completion-card" role="dialog" aria-modal="true" aria-labelledby="completion-title"><div class="completion-spark">♥</div><p class="section-kicker">ФИНАЛ ИСТОРИИ</p><h2 id="completion-title">Никита + Карина</h2><p>Один случайный танец в Омске привёл их друг к другу. Со временем они стали семьёй и сыграли свадьбу. Самое прекрасное продолжение происходит уже в жизни.</p><div class="ending-photo"><img src="assets/first-day.jpg" alt="Никита и Карина в день знакомства"></div><button class="pixel-button" id="replay-button" type="button">↻ ПРОЙТИ СНАЧАЛА</button><button class="text-button" id="close-modal" type="button">ПОСМОТРЕТЬ ВОСПОМИНАНИЯ</button></div></div>
+  <div class="memory-modal" id="memory-modal" hidden><div class="completion-backdrop"></div><div class="memory-card" role="dialog" aria-modal="true" aria-labelledby="memory-title"><div class="memory-visual" id="memory-visual"></div><div class="memory-copy"><div class="memory-portraits"><img src="assets/nikita-pixel-portrait.png" alt="Пиксельный портрет Никиты"><span>♥</span><img src="assets/karina-pixel-portrait.png" alt="Пиксельный портрет Карины"></div><p class="section-kicker" id="memory-kicker">ВОСПОМИНАНИЕ 01 / 05</p><h2 id="memory-title"></h2><p id="memory-text"></p><div class="memory-actions"><span id="memory-next-hint">СЛЕДУЮЩАЯ ГЛАВА</span><button class="pixel-button" id="memory-next" type="button">ПРОДОЛЖИТЬ ИСТОРИЮ →</button></div></div></div></div>
+  <div class="completion-modal" id="completion-modal" hidden><div class="completion-backdrop"></div><div class="completion-card" role="dialog" aria-modal="true" aria-labelledby="completion-title"><div class="completion-spark">♥</div><p class="section-kicker">ФИНАЛ ИСТОРИИ</p><h2 id="completion-title">Никита + Карина</h2><p>Всё началось с одного случайного танца в Омске. Потом были цветы у ТЮЗа, разговор в Кифазе, сообщение наутро и возвращение в Омск. Никита и Карина стали семьёй и сыграли свадьбу. А их история продолжается за пределами этой игры.</p><div class="ending-photo"><img src="assets/first-day.jpg" alt="Никита и Карина в день знакомства"></div><button class="pixel-button" id="replay-button" type="button">↻ ПРОЙТИ СНАЧАЛА</button><button class="text-button" id="close-modal" type="button">ПОСМОТРЕТЬ ВОСПОМИНАНИЯ</button></div></div>
 `;
 
 const gameMount = document.querySelector<HTMLElement>('#game');
@@ -176,7 +176,8 @@ window.addEventListener('game:memory', ((event: CustomEvent<number>) => {
   document.querySelector('#memory-kicker')!.textContent = `ВОСПОМИНАНИЕ ${String(index + 1).padStart(2, '0')} / 05`;
   document.querySelector('#memory-title')!.textContent = beat.cardTitle;
   document.querySelector('#memory-text')!.textContent = beat.cardText;
-  document.querySelector('#memory-next')!.textContent = `${beat.nextLabel} →`;
+  document.querySelector('#memory-next-hint')!.textContent = `ДАЛЬШЕ · ${beat.nextLabel}`;
+  document.querySelector('#memory-next')!.setAttribute('aria-label', `Продолжить историю: ${beat.nextLabel}`);
   memoryVisual.replaceChildren();
   if (beat.media) {
     const media = document.createElement(beat.media.type === 'video' ? 'video' : 'img');
