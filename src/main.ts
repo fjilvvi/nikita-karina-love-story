@@ -1,7 +1,10 @@
 import { chapters, story } from './content/story';
 import { mountGame } from './game';
 import { chipMusic } from './audio';
+import { MiniGames } from './minigames';
 import './style.css';
+import './challenge.css';
+import './polish.css';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('App mount not found');
@@ -24,7 +27,7 @@ app.innerHTML = `
           <div class="hero-meta"><span>✦</span> ОСНОВАНО НА ВОСПОМИНАНИЯХ НИКИТЫ <span class="meta-divider">/</span> ОМСК</div>
         </div>
         <div class="game-column" id="game-area">
-          <div class="game-frame"><div class="frame-top"><span class="live-dot"></span> СЕЙЧАС В ИГРЕ <span class="frame-title" id="frame-title">ГЛАВА 01: ТАНЦПОЛ</span><span class="frame-symbols">◇ ✳ ×</span></div><div id="game" class="game-canvas" role="application" aria-label="Пиксельная история Никиты и Карины"></div><div class="frame-bottom"><span id="progress-label">✦ ГЛАВА 01 / 06</span><span>НИКИТА + КАРИНА</span><span>16 BIT LOVE STORY</span></div></div>
+          <div class="game-frame" id="game-frame"><div class="frame-top"><span class="live-dot"></span> СЕЙЧАС В ИГРЕ <span class="frame-title" id="frame-title">ГЛАВА 01: ТАНЦПОЛ</span><button class="expand-button" id="expand-button" type="button" aria-label="Развернуть игру на весь экран">⛶</button></div><div id="game" class="game-canvas" role="application" aria-label="Пиксельная история Никиты и Карины"></div><div class="game-hud" aria-hidden="true"><div class="hud-panel"><img src="assets/nikita-pixel-portrait.png" alt=""><span><small>НИКИТА · ОМСК</small><strong id="hud-chapter">ТАНЦПОЛ</strong></span></div><div class="hud-energy"><small>ИСТОРИЯ</small><span>♥ ♥ ♥ ♥ ♥</span></div><div class="hud-prompt" id="hud-prompt">E — ПОТАНЦЕВАТЬ</div></div><div class="frame-bottom"><span id="progress-label">✦ ГЛАВА 01 / 06</span><span>НИКИТА + КАРИНА</span><span>16 BIT LOVE STORY</span></div></div>
           <div class="mobile-controls" aria-label="Управление игрой"><button type="button" class="control-button" data-move="-1" aria-label="Идти влево">◀</button><button type="button" class="control-button" data-move="1" aria-label="Идти вправо">▶</button><button type="button" class="control-button action-button" id="interact-button">✦ ДЕЙСТВИЕ</button></div><p class="mobile-hint" id="mobile-hint">${story[0].hint}</p>
           <div class="game-caption"><span class="caption-star">✳</span><span>СТРЕЛКИ ИЛИ A/D — ИДТИ · E ИЛИ ПРОБЕЛ — ДЕЙСТВИЕ</span><div class="portrait-hud"><span class="portrait-badge"><img src="assets/nikita-pixel-portrait.png" alt="Пиксельный портрет Никиты"><small>НИКИТА</small></span><span class="hud-heart">♥</span><span class="portrait-badge"><img src="assets/karina-pixel-portrait.png" alt="Пиксельный портрет Карины"><small>КАРИНА</small></span></div></div>
         </div>
@@ -48,6 +51,7 @@ app.innerHTML = `
     <footer class="footer"><span>♥ НИКИТА + КАРИНА</span><span>НАСТОЯЩАЯ ИСТОРИЯ. ПИКСЕЛЬНОЕ ПРИКЛЮЧЕНИЕ.</span><a href="#top">НАВЕРХ ↑</a></footer>
   </div>
 
+  <div class="challenge-modal" id="challenge-modal" hidden></div>
   <div class="memory-modal" id="memory-modal" hidden><div class="completion-backdrop"></div><div class="memory-card" role="dialog" aria-modal="true" aria-labelledby="memory-title"><div class="memory-visual" id="memory-visual"></div><div class="memory-copy"><div class="memory-portraits"><img src="assets/nikita-pixel-portrait.png" alt="Пиксельный портрет Никиты"><span>♥</span><img src="assets/karina-pixel-portrait.png" alt="Пиксельный портрет Карины"></div><p class="section-kicker" id="memory-kicker">ВОСПОМИНАНИЕ 01 / 05</p><h2 id="memory-title"></h2><p id="memory-text"></p><button class="pixel-button" id="memory-next" type="button">ПРОДОЛЖИТЬ →</button></div></div></div>
   <div class="completion-modal" id="completion-modal" hidden><div class="completion-backdrop"></div><div class="completion-card" role="dialog" aria-modal="true" aria-labelledby="completion-title"><div class="completion-spark">♥</div><p class="section-kicker">ФИНАЛ ИСТОРИИ</p><h2 id="completion-title">Никита + Карина</h2><p>Один случайный танец в Омске привёл их друг к другу. Со временем они стали семьёй и сыграли свадьбу. Самое прекрасное продолжение происходит уже в жизни.</p><div class="ending-photo"><img src="assets/first-day.jpg" alt="Никита и Карина в день знакомства"></div><button class="pixel-button" id="replay-button" type="button">↻ ПРОЙТИ СНАЧАЛА</button><button class="text-button" id="close-modal" type="button">ПОСМОТРЕТЬ ВОСПОМИНАНИЯ</button></div></div>
 `;
@@ -62,11 +66,16 @@ const memoryModal = document.querySelector<HTMLElement>('#memory-modal');
 const completionModal = document.querySelector<HTMLElement>('#completion-modal');
 const progressLabel = document.querySelector<HTMLElement>('#progress-label');
 const frameTitle = document.querySelector<HTMLElement>('#frame-title');
+const hudChapter = document.querySelector<HTMLElement>('#hud-chapter');
+const hudPrompt = document.querySelector<HTMLElement>('#hud-prompt');
 const memoryVisual = document.querySelector<HTMLElement>('#memory-visual');
+const challengeRoot = document.querySelector<HTMLElement>('#challenge-modal');
+const miniGames = challengeRoot ? new MiniGames(challengeRoot) : null;
 let started = false;
 
 function scrollToGame(): void { gameArea?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 function startGame(): void {
+  miniGames?.close();
   chipMusic.start();
   if (started) window.dispatchEvent(new CustomEvent('game:jump', { detail: 0 }));
   else { started = true; window.dispatchEvent(new Event('game:start')); }
@@ -78,6 +87,7 @@ startButton?.addEventListener('click', startGame);
 
 document.querySelectorAll<HTMLButtonElement>('[data-chapter]').forEach((button) => {
   button.addEventListener('click', () => {
+    miniGames?.close();
     chipMusic.start();
     started = true;
     if (startButton) startButton.innerHTML = '<span class="button-arrow">↻</span> ИГРАТЬ СНАЧАЛА';
@@ -88,15 +98,32 @@ document.querySelectorAll<HTMLButtonElement>('[data-chapter]').forEach((button) 
   });
 });
 
+window.addEventListener('game:challenge', ((event: CustomEvent<number>) => {
+  miniGames?.show(event.detail, () => window.dispatchEvent(new Event('game:challenge-complete')));
+}) as EventListener);
+
 window.addEventListener('game:stage', ((event: CustomEvent<number>) => {
   const index = event.detail;
   if (progressLabel) progressLabel.textContent = `✦ ГЛАВА ${String(index + 1).padStart(2, '0')} / 06`;
   if (frameTitle) frameTitle.textContent = `ГЛАВА ${String(index + 1).padStart(2, '0')}: ${chapters[index].title.toUpperCase()}`;
+  if (hudChapter) hudChapter.textContent = chapters[index].title.toUpperCase();
+  if (hudPrompt) hudPrompt.textContent = ['E — ТАНЦЕВАТЬ', 'E — СОБРАТЬ ЦВЕТЫ', 'E — ПРИСЕСТЬ', 'E — НАПИСАТЬ', 'E — ВСТРЕТИТЬ', '♥ — НАВСЕГДА'][index];
   chipMusic.setStage(index);
   const mobileHint = document.querySelector<HTMLElement>('#mobile-hint');
   if (mobileHint) mobileHint.textContent = index < story.length ? story[index].hint : 'История Никиты и Карины продолжается ♥';
   document.querySelectorAll<HTMLElement>('[data-chapter]').forEach((card) => card.classList.toggle('current', Number(card.dataset.chapter) === index));
 }) as EventListener);
+
+window.addEventListener('game:flowers', ((event: CustomEvent<number>) => {
+  if (hudPrompt) hudPrompt.textContent = event.detail === 3 ? 'E — ОТДАТЬ БУКЕТ И ПАЛЬТО' : `БУКЕТ ${event.detail} / 3 · E — СОБРАТЬ`;
+}) as EventListener);
+
+document.querySelector<HTMLButtonElement>('#expand-button')?.addEventListener('click', () => {
+  const frame = document.querySelector<HTMLElement>('#game-frame');
+  if (!frame) return;
+  if (document.fullscreenElement) document.exitFullscreen();
+  else frame.requestFullscreen?.();
+});
 
 window.addEventListener('game:memory', ((event: CustomEvent<number>) => {
   const index = event.detail;

@@ -17,7 +17,7 @@ export class StoryScene extends Phaser.Scene {
   private moveDirection = 0;
   private keyLeft = false;
   private keyRight = false;
-  private danceCount = 0;
+  private playerBaseY = 0;
   private flowers = new Set<number>();
   private flowerSprites: Phaser.GameObjects.Image[] = [];
   private status!: Phaser.GameObjects.Text;
@@ -35,6 +35,8 @@ export class StoryScene extends Phaser.Scene {
     window.addEventListener('game:continue', this.continueStory);
     window.addEventListener('game:move', this.setMove as EventListener);
     window.addEventListener('game:interact', this.interact);
+    window.addEventListener('game:challenge-complete', this.openMemory);
+    window.addEventListener('game:challenge-cancel', this.cancelChallenge);
     window.addEventListener('keydown', this.keyDown);
     window.addEventListener('keyup', this.keyUp);
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -48,6 +50,8 @@ export class StoryScene extends Phaser.Scene {
       window.removeEventListener('game:continue', this.continueStory);
       window.removeEventListener('game:move', this.setMove as EventListener);
       window.removeEventListener('game:interact', this.interact);
+      window.removeEventListener('game:challenge-complete', this.openMemory);
+      window.removeEventListener('game:challenge-cancel', this.cancelChallenge);
       window.removeEventListener('keydown', this.keyDown);
       window.removeEventListener('keyup', this.keyUp);
     });
@@ -105,11 +109,7 @@ export class StoryScene extends Phaser.Scene {
     if (!this.started || this.paused || this.stage >= story.length) return;
     const x = this.player.x;
     if (this.stage === 0 && Math.abs(x - 690) < 85) {
-      this.danceCount += 1;
-      this.status.setText(`ТАНЕЦ  /  ${Math.min(this.danceCount, 3)} ИЗ 3`);
-      this.popHeart(665 + this.danceCount * 17, 220);
-      this.tweens.add({ targets: this.player, angle: this.danceCount % 2 ? -8 : 8, duration: 110, yoyo: true });
-      if (this.danceCount >= 3) this.openMemory();
+      this.openChallenge();
       return;
     }
     if (this.stage === 1) {
@@ -119,33 +119,43 @@ export class StoryScene extends Phaser.Scene {
         this.flowerSprites[flowerIndex]?.destroy();
         this.popHeart(FLOWERS[flowerIndex], 310);
         this.status.setText(`БУКЕТ  /  ${this.flowers.size} ИЗ 3`);
+        window.dispatchEvent(new CustomEvent('game:flowers', { detail: this.flowers.size }));
         if (this.flowers.size === 3) this.helper.setText('Букет готов. Подойди к Карине →');
         return;
       }
       if (this.flowers.size === 3 && Math.abs(x - 790) < 80) {
         this.karinaSprite?.setTexture('karina-coat');
-        this.openMemory();
+        this.openChallenge();
         return;
       }
     }
-    if (this.stage === 2 && Math.abs(x - 590) < 90) { this.openMemory(); return; }
-    if (this.stage === 3 && Math.abs(x - 720) < 95) { this.openMemory(); return; }
+    if (this.stage === 2 && Math.abs(x - 590) < 90) { this.openChallenge(); return; }
+    if (this.stage === 3 && Math.abs(x - 720) < 95) { this.openChallenge(); return; }
     if (this.stage === 4 && Math.abs(x - 735) < 90) {
       this.paused = true;
       this.tweens.add({ targets: this.player, x: 700, duration: 340, ease: 'Sine.easeInOut' });
       this.popHeart(705, 280);
-      this.time.delayedCall(520, this.openMemory, [], this);
+      this.time.delayedCall(520, this.openChallenge, [], this);
       return;
     }
     this.tweens.add({ targets: this.helper, alpha: 0.2, duration: 90, yoyo: true });
   };
 
-  private openMemory(): void {
+  private openChallenge = (): void => {
+    this.paused = true;
+    this.moveDirection = 0;
+    this.targetX = null;
+    window.dispatchEvent(new CustomEvent('game:challenge', { detail: this.stage }));
+  };
+
+  private cancelChallenge = (): void => { this.paused = false; };
+
+  private openMemory = (): void => {
     this.paused = true;
     this.moveDirection = 0;
     this.targetX = null;
     window.dispatchEvent(new CustomEvent('game:memory', { detail: this.stage }));
-  }
+  };
 
   update(_time: number, delta: number): void {
     if (!this.started || this.paused || this.stage >= story.length) return;
@@ -163,8 +173,8 @@ export class StoryScene extends Phaser.Scene {
     if (direction) {
       this.player.x = Phaser.Math.Clamp(this.player.x + direction * delta * 0.25, 48, W - 48);
       this.player.setFlipX(direction < 0);
-      this.player.y = this.floor - 26 + Math.sin(this.time.now * 0.024) * 2;
-    } else this.player.y = this.floor - 26;
+      this.player.y = this.playerBaseY + Math.sin(this.time.now * 0.024) * 2;
+    } else this.player.y = this.playerBaseY;
   }
 
   private drawStage(): void {
@@ -174,7 +184,6 @@ export class StoryScene extends Phaser.Scene {
     this.moveDirection = 0;
     this.keyLeft = false;
     this.keyRight = false;
-    this.danceCount = 0;
     this.flowers.clear();
     this.flowerSprites = [];
     this.karinaSprite = undefined;
@@ -187,19 +196,21 @@ export class StoryScene extends Phaser.Scene {
     else this.drawFinal(g);
     if (this.stage < story.length) {
       const outfit = this.stage === 4 ? 'nikita-arrival' : this.stage === 1 ? 'nikita-coat' : 'nikita-pixel';
-      this.player = this.add.image(this.stage === 2 ? 185 : 130, this.floor - 26, outfit).setScale(3).setDepth(12);
+      const scale = 5.1;
+      this.playerBaseY = this.floor - 19 * scale;
+      this.player = this.add.image(this.stage === 2 ? 185 : 130, this.playerBaseY, outfit).setScale(scale).setDepth(12);
     }
     const title = this.stage < story.length ? story[this.stage].title : 'Никита + Карина';
     this.add.text(34, 24, `${String(this.stage + 1).padStart(2, '0')} / 06   ${title.toUpperCase()}`, {
       fontFamily: 'monospace', fontSize: '15px', color: '#fff4df', stroke: '#1b1329', strokeThickness: 5,
-    }).setDepth(30);
+    }).setDepth(30).setVisible(false);
     this.status = this.add.text(W - 31, 24, this.stage === 1 ? 'БУКЕТ  /  0 ИЗ 3' : 'НИКИТА ♥ КАРИНА', {
       fontFamily: 'monospace', fontSize: '14px', color: '#ffd0be', stroke: '#1b1329', strokeThickness: 5,
-    }).setOrigin(1, 0).setDepth(30);
+    }).setOrigin(1, 0).setDepth(30).setVisible(false);
     this.helper = this.add.text(W / 2, 502, this.stage < story.length ? story[this.stage].hint : 'ИСТОРИЯ ПРОДОЛЖАЕТСЯ', {
       fontFamily: 'monospace', fontSize: '14px', color: '#fff0dd', stroke: '#1b1329', strokeThickness: 5,
       align: 'center', wordWrap: { width: 850 },
-    }).setOrigin(0.5).setDepth(30);
+    }).setOrigin(0.5).setDepth(30).setVisible(false);
     if (this.stage < story.length) window.dispatchEvent(new CustomEvent('game:stage', { detail: this.stage }));
     else window.dispatchEvent(new CustomEvent('game:stage', { detail: 5 }));
   }
@@ -281,17 +292,6 @@ export class StoryScene extends Phaser.Scene {
     }
   }
 
-  private city(g: Phaser.GameObjects.Graphics, top: number, floor: number): void {
-    g.fillStyle(0x241d37).fillRect(0, top, W, floor - top);
-    for (let i = 0; i < 20; i++) {
-      const x = i * 53 - 9, height = 40 + (i * 37) % 100;
-      g.fillStyle(i % 3 ? 0x30223c : 0x3a2942).fillRect(x, floor - height, 50, height);
-      for (let row = 0; row < 5; row++) for (let col = 0; col < 3; col++) {
-        if ((row + col + i) % 3 !== 0) g.fillStyle(0xf7b28b, 0.65).fillRect(x + 7 + col * 13, floor - height + 10 + row * 17, 4, 6);
-      }
-    }
-  }
-
   private ground(g: Phaser.GameObjects.Graphics, y: number, color = 0x292139): void {
     this.floor = y;
     g.fillStyle(color).fillRect(0, y, W, H - y);
@@ -303,110 +303,234 @@ export class StoryScene extends Phaser.Scene {
     this.add.text(x, y, text, { fontFamily: 'monospace', fontSize: size, color, stroke: '#24162e', strokeThickness: 5 }).setOrigin(0.5).setDepth(10);
   }
 
+  private floorTiles(g: Phaser.GameObjects.Graphics, top: number, a: number, b: number): void {
+    this.floor = top;
+    g.fillStyle(a).fillRect(0, top, W, H - top);
+    for (let row = 0; row < 5; row++) {
+      const y = top + row * (19 + row * 4);
+      for (let col = 0; col < 14; col++) {
+        const x = col * 77 - (row % 2) * 38;
+        g.fillStyle((row + col) % 3 ? b : a, .48).fillRect(x, y, 73, 2);
+        g.fillStyle(b, .45).fillRect(x, y, 2, 22 + row * 4);
+      }
+    }
+  }
+
+  private lamp(g: Phaser.GameObjects.Graphics, x: number, y: number, light: number): void {
+    g.fillStyle(light, .08).fillCircle(x, y, 70);
+    g.fillStyle(light, .14).fillCircle(x, y, 42);
+    g.fillStyle(0x292038).fillRect(x - 11, y - 8, 22, 20);
+    g.fillStyle(light).fillRect(x - 7, y - 4, 14, 13);
+    g.fillStyle(0xfff1d3).fillRect(x - 3, y - 2, 6, 7);
+  }
+
+  private sparkle(g: Phaser.GameObjects.Graphics, x: number, y: number, color: number): void {
+    g.fillStyle(color, .8).fillRect(x - 1, y - 8, 3, 17).fillRect(x - 8, y - 1, 17, 3);
+    g.fillStyle(0xffffff, .8).fillRect(x, y, 2, 2);
+  }
+
   private drawClub(g: Phaser.GameObjects.Graphics): void {
-    g.fillStyle(0x151020).fillRect(0, 0, W, H);
-    g.fillStyle(0x2b1740).fillRect(0, 76, W, 335);
-    for (let x = 0; x < W; x += 85) {
-      g.fillStyle(x % 2 ? 0x5d2d76 : 0x363a87, 0.3).fillTriangle(x + 40, 96, x - 70, 400, x + 140, 400);
+    g.fillStyle(0x110f27).fillRect(0, 0, W, H);
+    g.fillStyle(0x241c3b).fillRect(0, 62, W, 360);
+    // DOSKI's real interior: exposed ceiling, illuminated stars, stage and purple booths.
+    for (let x = -20; x < W; x += 126) {
+      g.fillStyle(0x111020).fillRect(x, 82, 104, 18);
+      g.fillStyle(0x514066).fillRect(x + 7, 96, 91, 3);
+      g.fillStyle(0x1b1934).fillRect(x + 44, 98, 6, 30);
+      g.fillStyle(0xa77eb2, .5).fillRect(x + 41, 123, 12, 3);
     }
-    for (let x = 0; x < W; x += 160) {
-      g.fillStyle(0x291733).fillRect(x, 125, 100, 164);
-      g.fillStyle(0xd55eaa, 0.7).fillRect(x + 8, 135, 84, 4);
-      g.fillStyle(0x6359ba, 0.7).fillRect(x + 8, 273, 84, 4);
+    g.fillStyle(0x665286).fillRect(0, 121, W, 5);
+    g.fillStyle(0x120f27).fillRect(23, 169, 367, 216);
+    g.fillStyle(0x553b83).fillRect(31, 180, 351, 195);
+    g.fillStyle(0x1a1334).fillRect(37, 186, 339, 181);
+    for (let row = 0; row < 11; row++) for (let col = 0; col < 22; col++) {
+      const c = (row + col) % 5 === 0 ? 0xf6a6df : (row * col) % 3 ? 0xa169ea : 0x63bce9;
+      g.fillStyle(c, .8).fillRect(46 + col * 15, 195 + row * 15, 4, 4);
     }
-    g.fillStyle(0xe49cdc).fillCircle(480, 104, 28);
-    g.fillStyle(0x734b9c).fillRect(453, 99, 54, 9).fillRect(474, 78, 10, 52);
-    g.fillStyle(0x24182c).fillRect(0, 390, W, 16);
-    this.ground(g, 406, 0x211a30);
-    for (let x = 17; x < W; x += 59) g.fillStyle(x % 3 ? 0x965790 : 0x4f66a5, 0.6).fillRect(x, 430 + x % 28, 11, 5);
-    g.fillStyle(0xffa0c5).fillRect(345, 143, 270, 6);
-    this.label('D O S K I', 480, 175, '#ffb8ce', '30px');
-    [638, 686, 739, 790].forEach((x, i) => {
-      const friend = this.person(x, 406, 'karina-pixel', 2.4);
-      if (i !== 1) friend.setTint([0xdcb8db, 0xffffff, 0xf2c2b3, 0xc9c3e6][i]);
+    g.fillStyle(0x3d2c57).fillRect(0, 355, 415, 32);
+    for (let x = 30; x < 400; x += 66) { g.fillStyle(0x151228).fillRect(x, 325, 18, 55); g.fillStyle(0xc37dda).fillRect(x + 2, 326, 14, 3); }
+    g.fillStyle(0x463354).fillRect(744, 215, 195, 157);
+    g.fillStyle(0x9c62d3).fillRect(753, 245, 180, 88);
+    g.fillStyle(0xc98dff).fillRect(760, 250, 164, 8);
+    g.fillStyle(0x583771).fillRect(753, 333, 180, 32);
+    for (let x = 779; x < 930; x += 34) g.fillStyle(0xd4a4f5, .45).fillRect(x, 272, 4, 33);
+    g.fillStyle(0x2f203c).fillRect(570, 162, 12, 215);
+    g.fillStyle(0x544160).fillRect(579, 175, 4, 190);
+    g.fillStyle(0x694874).fillRect(405, 83, 152, 18);
+    this.label('DOSKI', 480, 94, '#ffc7e4', '25px');
+    for (const x of [180, 514, 841]) {
+      g.fillStyle(0xf6d8a4, .12).fillTriangle(x, 135, x - 105, 403, x + 105, 403);
+      this.sparkle(g, x, 144, 0xffd8a9);
+    }
+    for (const x of [280, 627]) {
+      g.fillStyle(0xc75df2, .12).fillTriangle(x, 130, x - 150, 412, x + 160, 412);
+      this.lamp(g, x, 126, 0xd28eea);
+    }
+    this.floorTiles(g, 405, 0x241d38, 0x55486e);
+    for (let x = 15; x < W; x += 64) { g.fillStyle(x % 3 ? 0x7757b7 : 0xb065ad, .42).fillRect(x, 426 + (x % 4) * 14, 17, 5); }
+    // Karina and three friends form the group Nikita accidentally joins.
+    [620, 685, 752, 823].forEach((x, i) => {
+      const friend = this.person(x, 405, 'karina-pixel', i === 1 ? 4.1 : 3.55);
+      if (i !== 1) friend.setTint([0xd6a6bf, 0xffffff, 0xeab7b4, 0xb8aed9][i]);
+      if (i === 1) this.karinaSprite = friend;
+      this.tweens.add({ targets: friend, y: friend.y - (i % 2 ? 5 : 3), duration: 420 + i * 90, yoyo: true, repeat: -1 });
     });
-    this.label('КАРИНА', 687, 279, '#ffd5d1', '14px');
-    this.stars(25);
+    this.label('КАРИНА  ♥', 686, 238, '#ffe1d5', '13px');
+    this.stars(16);
   }
 
   private drawWalk(g: Phaser.GameObjects.Graphics): void {
-    [0x18152c, 0x211a37, 0x34233f, 0x5d3453, 0x81415b, 0xa65b63].forEach((c, i) => g.fillStyle(c).fillRect(0, i * 67, W, 70));
-    g.fillStyle(0xffe2b5, 0.18).fillCircle(770, 135, 52);
-    g.fillStyle(0xffe7c8).fillCircle(770, 135, 27);
-    this.city(g, 265, 405);
-    g.fillStyle(0x65536a).fillRect(130, 282, 210, 124);
-    g.fillStyle(0x3b2c46).fillRect(142, 302, 186, 104);
-    g.fillStyle(0xd9a6ab).fillRect(146, 292, 178, 9);
-    this.label('ТЮЗ', 235, 339, '#f7d9c6', '24px');
-    this.ground(g, 405);
-    for (let i = 0; i < 3; i++) {
-      this.flowerSprites.push(this.add.image(FLOWERS[i], 389, 'flower-pixel').setScale(2.3).setDepth(11));
-      g.fillStyle(0x506953).fillRect(FLOWERS[i] - 19, 393, 38, 12);
+    g.fillStyle(0x18182f).fillRect(0, 0, W, H);
+    for (let i = 0; i < 6; i++) g.fillStyle([0x22223b,0x2c2944,0x38314b,0x49384e,0x624356,0x765160][i]).fillRect(0, 85 + i * 47, W, 50);
+    g.fillStyle(0xffdeb3, .14).fillCircle(797, 138, 70);
+    g.fillStyle(0xffefd1).fillCircle(797, 138, 27);
+    // The Omsk ТЮЗ facade follows the supplied architectural reference.
+    g.fillStyle(0x4d4d64).fillRect(43, 214, 726, 180);
+    g.fillStyle(0xb7b1ae).fillRect(48, 194, 674, 189);
+    g.fillStyle(0xddd0c1).fillRect(54, 200, 665, 8);
+    g.fillStyle(0x9f9ca7).fillRect(577, 150, 183, 233);
+    g.fillStyle(0xd8d3cd).fillRect(590, 157, 158, 213);
+    g.fillStyle(0x68677a).fillRect(288, 244, 244, 134);
+    g.fillStyle(0xa2a2ae).fillRect(296, 252, 228, 117);
+    for (let x = 306; x < 522; x += 39) { g.fillStyle(0x3e455b).fillRect(x, 259, 30, 105); g.fillStyle(0xe2c39c, .45).fillRect(x + 3, 262, 20, 37); }
+    g.fillStyle(0xd9d6d0).fillRect(287, 235, 249, 16);
+    g.fillStyle(0x4b4e63).fillRect(76, 270, 126, 78);
+    g.fillStyle(0xddd6cb).fillRect(82, 276, 114, 66);
+    for (let x = 615; x < 735; x += 43) { g.fillStyle(0x525369).fillRect(x, 212, 29, 43); g.fillStyle(0xffdab4, .6).fillRect(x + 4, 215, 22, 29); }
+    this.label('ТЮЗ', 139, 308, '#615265', '27px');
+    for (let x = 39; x < W; x += 125) {
+      g.fillStyle(0x2e3f45).fillRect(x, 330, 6, 80);
+      g.fillStyle(0x3b5c52).fillCircle(x + 3, 325, 32);
+      g.fillStyle(0x527862).fillRect(x - 25, 316, 49, 14);
+      g.fillStyle(0x6b8b67).fillRect(x - 13, 299, 28, 9);
     }
-    this.karinaSprite = this.person(790, 405, 'karina-pixel');
-    this.label('КАРИНА', 790, 301, '#ffd9d4', '13px');
-    this.stars();
+    for (const x of [125, 715]) {
+      g.fillStyle(0x352c3e).fillRect(x, 235, 6, 176);
+      this.lamp(g, x + 3, 231, 0xffd6a0);
+      g.fillStyle(0xffd6a0, .09).fillTriangle(x + 3, 242, x - 74, 409, x + 80, 409);
+    }
+    this.floorTiles(g, 409, 0x403949, 0x6e6070);
+    g.fillStyle(0xc99b98, .35).fillRect(0, 413, W, 4);
+    for (let x = 0; x < W; x += 90) g.fillStyle(0xe6c19e, .18).fillRect(x + 8, 453 + (x % 3) * 9, 40, 2);
+    for (let i = 0; i < 3; i++) {
+      g.fillStyle(0x506953).fillRect(FLOWERS[i] - 33, 388, 66, 22);
+      for (let j = 0; j < 7; j++) { g.fillStyle(j % 2 ? 0xe2a1a7 : 0xffd7ad).fillRect(FLOWERS[i] - 28 + j * 8, 380 + j % 3 * 4, 5, 5); }
+      this.flowerSprites.push(this.add.image(FLOWERS[i], 375, 'flower-pixel').setScale(3).setDepth(11));
+      this.tweens.add({ targets: this.flowerSprites[i], y: 370, duration: 650 + i * 120, yoyo: true, repeat: -1 });
+    }
+    this.karinaSprite = this.person(790, 409, 'karina-pixel', 4.2);
+    this.label('КАРИНА', 790, 230, '#ffd9d4', '13px');
+    this.stars(35);
   }
 
   private drawCafe(g: Phaser.GameObjects.Graphics): void {
-    g.fillStyle(0x4d2e3c).fillRect(0, 0, W, H);
-    g.fillStyle(0x9f6256).fillRect(0, 64, W, 350);
-    g.fillStyle(0xe2a177).fillRect(0, 113, W, 10);
-    for (let x = 65; x < W; x += 190) {
-      g.fillStyle(0x64394b).fillRect(x, 163, 115, 120);
-      g.fillStyle(0xffd2a3).fillRect(x + 9, 172, 97, 103);
-      g.fillStyle(0x955b55).fillRect(x + 14, 211, 88, 61);
+    g.fillStyle(0x3e2d3d).fillRect(0, 0, W, H);
+    g.fillStyle(0x7d4e4c).fillRect(0, 76, W, 328);
+    g.fillStyle(0xbe6d62).fillRect(0, 94, W, 12);
+    g.fillStyle(0xf2c394).fillRect(0, 110, W, 5);
+    // The long red-and-white facade on Transportnaya is visible through the windows.
+    for (const x of [40, 258, 746]) {
+      g.fillStyle(0x3a2939).fillRect(x, 153, 186, 205);
+      g.fillStyle(0x8cacc0).fillRect(x + 9, 162, 168, 185);
+      g.fillStyle(0x405c77).fillRect(x + 9, 209, 168, 138);
+      g.fillStyle(0xb34554).fillRect(x + 18, 227, 150, 30);
+      g.fillStyle(0x74819a).fillRect(x + 13, 266, 158, 4);
+      for (let pane = 1; pane <= 3; pane++) g.fillStyle(0x293d54).fillRect(x + 9 + pane * 42, 162, 5, 185);
+      g.fillStyle(0xe5d4be, .4).fillRect(x + 21, 177, 12, 119);
     }
-    g.fillStyle(0x853947).fillRect(545, 71, 335, 74);
-    this.label('КИФАЗ', 712, 107, '#ffe6bf', '33px');
-    g.fillStyle(0x463044).fillRect(345, 320, 452, 28).fillRect(375, 348, 22, 60).fillRect(751, 348, 22, 60);
-    g.fillStyle(0xf9d5aa).fillRect(475, 311, 44, 9).fillRect(634, 310, 40, 10);
-    this.ground(g, 407, 0x493249);
-    this.person(605, 400, 'karina-pixel', 2.5);
-    this.label('ПОГОВОРИТЬ  ✦', 590, 264, '#fff0d4', '15px');
+    g.fillStyle(0x9f433f).fillRect(440, 137, 300, 107);
+    g.fillStyle(0xffd9aa).fillRect(457, 151, 267, 8);
+    g.fillStyle(0x603c43).fillRect(442, 250, 299, 78);
+    for (let i = 0; i < 5; i++) {
+      g.fillStyle(i % 2 ? 0xf7bc81 : 0xffdc9e).fillRect(461 + i * 51, 267, 35, 24);
+      g.fillStyle(0x2b222b).fillRect(465 + i * 51, 297, 27, 4);
+    }
+    g.fillStyle(0x563c3f).fillRect(443, 327, 300, 13);
+    this.label('КИФАЗ', 590, 196, '#ffe2b2', '31px');
+    for (const x of [142, 357, 795]) {
+      g.fillStyle(0x392a34).fillRect(x - 18, 113, 36, 12).fillRect(x - 3, 124, 6, 50);
+      g.fillStyle(0xffcb88, .2).fillCircle(x, 184, 58);
+      g.fillStyle(0xffdda4).fillRect(x - 15, 168, 30, 13);
+    }
+    this.floorTiles(g, 407, 0x59434b, 0x9c7372);
+    g.fillStyle(0x3e2836).fillRect(465, 329, 266, 17).fillRect(485, 346, 12, 67).fillRect(703, 346, 12, 67);
+    g.fillStyle(0xb68a78).fillRect(467, 322, 263, 8);
+    g.fillStyle(0xe7d2a9).fillRect(512, 310, 45, 12).fillRect(643, 311, 43, 11);
+    g.fillStyle(0xd19c7b).fillRect(517, 301, 35, 8).fillRect(649, 302, 31, 8);
+    g.fillStyle(0x6a3d49).fillRect(553, 345, 74, 32);
+    this.person(665, 407, 'karina-pixel', 4.05);
+    this.label('ПОГОВОРИТЬ  ✦', 590, 275, '#fff0d4', '14px');
   }
 
   private drawMorning(g: Phaser.GameObjects.Graphics): void {
-    [0x7ca8be, 0x8ec1c5, 0xb7d8cb, 0xe1d7b1, 0xeacda7, 0xe7b99f].forEach((c, i) => g.fillStyle(c).fillRect(0, i * 69, W, 72));
-    g.fillStyle(0xffedbc).fillCircle(777, 98, 51);
-    for (let i = 0; i < 11; i++) {
-      const x = i * 100 - 20;
-      g.fillStyle(0x5d805f).fillRect(x + 36, 244, 13, 165);
-      g.fillStyle(i % 2 ? 0x6f9a72 : 0x88a873).fillCircle(x + 42, 260, 57);
+    g.fillStyle(0x806e80).fillRect(0, 0, W, H);
+    g.fillStyle(0xc2a4a0).fillRect(0, 80, W, 325);
+    for (let x = 22; x < W; x += 47) { g.fillStyle(0xe0b9aa, .25).fillRect(x, 104, 4, 300); }
+    // A quiet morning at home; through the window, Omsk is already bright.
+    g.fillStyle(0x52445e).fillRect(65, 135, 397, 245);
+    g.fillStyle(0xbce1de).fillRect(77, 148, 372, 217);
+    g.fillStyle(0x9fc9cb).fillRect(77, 148, 372, 78);
+    g.fillStyle(0xffe5b0).fillCircle(381, 190, 27);
+    for (let x = 75; x < 452; x += 54) {
+      g.fillStyle(0x769b85).fillRect(x + 27, 252, 8, 112);
+      g.fillStyle(x % 2 ? 0x5f937b : 0x83ad87).fillCircle(x + 31, 263, 30);
     }
-    this.ground(g, 407, 0x93847d);
-    this.person(876, 407, 'karina-red', 2.4);
-    g.fillStyle(0x2e2638).fillRect(650, 159, 145, 216);
-    g.fillStyle(0x47455f).fillRect(660, 170, 125, 193);
-    g.fillStyle(0xf0dbd0).fillRect(669, 210, 105, 54);
-    g.fillStyle(0xc77889).fillRect(692, 289, 82, 42);
-    this.label('ПРОСНУЛИСЬ?', 721, 235, '#3b2b3a', '12px');
-    this.label('ОТПРАВИТЬ', 731, 307, '#fff3e1', '13px');
-    this.label('УТРО ПОСЛЕ ВСТРЕЧИ', 400, 135, '#fff8e8', '23px');
+    g.fillStyle(0x3f4e68).fillRect(236, 149, 8, 215).fillRect(77, 263, 372, 6);
+    g.fillStyle(0xe3d1bd).fillRect(59, 378, 410, 16);
+    g.fillStyle(0xffd5b4, .3).fillTriangle(80, 389, 302, 406, 405, 540);
+    g.fillStyle(0x7d6475).fillRect(55, 346, 93, 56);
+    g.fillStyle(0x917382).fillRect(74, 321, 70, 34);
+    g.fillStyle(0xead5c0).fillRect(81, 323, 53, 22);
+    g.fillStyle(0x433d5a).fillRect(488, 317, 113, 91);
+    g.fillStyle(0x71627d).fillRect(498, 324, 93, 24);
+    g.fillStyle(0x573f62).fillRect(495, 392, 112, 10);
+    this.floorTiles(g, 407, 0x80707a, 0xb39999);
+    // The phone is a playable landmark, with Karina's park reply foreshadowed on screen.
+    g.fillStyle(0x2c283d).fillRect(645, 144, 167, 250);
+    g.fillStyle(0x6a5b75).fillRect(653, 152, 151, 234);
+    g.fillStyle(0xeadbd9).fillRect(664, 183, 129, 190);
+    g.fillStyle(0xd9a4ae).fillRect(664, 183, 129, 25);
+    g.fillStyle(0xf5e8e0).fillRect(675, 232, 105, 44);
+    g.fillStyle(0xb180a1).fillRect(688, 304, 91, 43);
+    this.label('КАРИНА', 729, 197, '#513b58', '12px');
+    this.label('ПРОСНУЛИСЬ?', 728, 251, '#6f5670', '11px');
+    this.label('ОТПРАВИТЬ', 733, 324, '#fff7e9', '13px');
+    this.label('УТРО В ОМСКЕ', 312, 110, '#fff4e3', '20px');
+    this.person(882, 407, 'karina-red', 3.2).setAlpha(.72);
   }
 
   private drawArrival(g: Phaser.GameObjects.Graphics): void {
-    g.fillStyle(0xd4d8d7).fillRect(0, 0, W, H);
-    g.fillStyle(0xeff0eb).fillRect(0, 76, W, 328);
-    g.fillStyle(0xa9afb0).fillRect(0, 124, W, 9).fillRect(0, 307, W, 8);
-    for (let x = 18; x < 535; x += 86) {
-      g.fillStyle(0xc4c8c8).fillRect(x, 150, 75, 202);
-      g.fillStyle(0xe9eae7).fillRect(x + 5, 155, 65, 190);
-      g.fillStyle(0xaeb4b4).fillRect(x + 10, 180, 55, 2).fillRect(x + 10, 249, 55, 2);
-      g.fillStyle(0x878f91).fillRect(x + 57, 219, 4, 9);
+    g.fillStyle(0x929aa9).fillRect(0, 0, W, H);
+    g.fillStyle(0xd7dadd).fillRect(0, 75, W, 330);
+    g.fillStyle(0xf4f0e9).fillRect(0, 95, W, 291);
+    g.fillStyle(0x8290a4).fillRect(0, 127, W, 13).fillRect(0, 307, W, 8);
+    for (let x = 0; x < W; x += 77) { g.fillStyle(0xc1c8cc).fillRect(x, 103, 8, 283); g.fillStyle(0x8494a3).fillRect(x + 4, 109, 2, 268); }
+    // Lockers and glass entry echo the supplied reunion video.
+    for (let x = 25; x < 510; x += 86) {
+      g.fillStyle(0xadb7bd).fillRect(x, 155, 77, 208);
+      g.fillStyle(0xe8e9e6).fillRect(x + 5, 160, 67, 196);
+      g.fillStyle(0xb6bdc2).fillRect(x + 9, 231, 59, 3).fillRect(x + 9, 285, 59, 3);
+      g.fillStyle(0x798998).fillRect(x + 58, 205, 4, 13).fillRect(x + 58, 258, 4, 13);
+      g.fillStyle(0xd9575c).fillRect(x + 12, 170, 18, 5);
     }
-    g.fillStyle(0x506076).fillRect(561, 142, 370, 240);
-    g.fillStyle(0x99b4c5).fillRect(569, 151, 354, 219);
-    g.fillStyle(0x566c82).fillRect(741, 151, 8, 219);
-    g.fillStyle(0x3e4b64).fillRect(632, 69, 248, 56);
-    this.label('ОМСК  ♥', 756, 96, '#fff3d9', '24px');
-    this.ground(g, 405, 0xaaa7a4);
-    for (let x = 0; x < W; x += 90) g.fillStyle(0xd4d1ca).fillRect(x, 452, 84, 2);
-    g.fillStyle(0xd4d1ca).fillRect(0, 484, W, 2);
-    this.person(735, 405, 'karina-coat');
-    g.fillStyle(0x4c3e58).fillRect(784, 359, 27, 47);
-    g.fillStyle(0xbba4a3).fillRect(790, 351, 15, 8);
-    this.label('КАРИНА', 735, 299, '#fff0e4', '14px');
+    g.fillStyle(0x445268).fillRect(529, 135, 400, 243);
+    g.fillStyle(0x8eafc1).fillRect(539, 145, 380, 224);
+    g.fillStyle(0xb9d7de).fillRect(544, 150, 370, 72);
+    g.fillStyle(0x6f8da0).fillRect(544, 290, 370, 79);
+    for (let x = 591; x < 915; x += 91) { g.fillStyle(0x4d6378).fillRect(x, 145, 8, 224); g.fillStyle(0xd8f0ed, .45).fillRect(x + 13, 155, 13, 161); }
+    g.fillStyle(0x3c4b61).fillRect(653, 65, 239, 59);
+    g.fillStyle(0x738ba0).fillRect(660, 71, 225, 4);
+    this.label('ОМСК  ♥', 773, 95, '#fff1d6', '23px');
+    for (const x of [191, 485, 825]) {
+      g.fillStyle(0xfff4dc, .17).fillCircle(x, 121, 40);
+      g.fillStyle(0xfff7e6).fillRect(x - 25, 109, 50, 9);
+    }
+    this.floorTiles(g, 405, 0xa8a8a9, 0xd2c9c3);
+    for (let x = 0; x < W; x += 115) g.fillStyle(0xede9e3, .6).fillRect(x + 11, 447, 75, 2);
+    this.karinaSprite = this.person(735, 405, 'karina-coat', 4.2);
+    g.fillStyle(0x4c3e58).fillRect(814, 344, 34, 62);
+    g.fillStyle(0xbba4a3).fillRect(821, 335, 20, 9);
+    this.label('КАРИНА', 736, 222, '#fff0e4', '14px');
   }
 
   private drawFinal(g: Phaser.GameObjects.Graphics): void {
